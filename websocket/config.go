@@ -33,7 +33,11 @@ type Config struct {
 	ReconnectBackoffMax time.Duration
 
 	maxMessageSize int64
-	payloadType    PayloadType
+
+	WriteBufferSize int
+	ReadBufferSize  int
+	ReadWorkerNum   int
+	IsForbidIPV6    bool
 }
 
 func NewConfig() *Config {
@@ -45,7 +49,10 @@ func NewConfig() *Config {
 		ReconnectBackoffMin: 500 * time.Millisecond,
 		ReconnectBackoffMax: 10 * time.Second,
 		maxMessageSize:      4 << 20,
-		payloadType:         JSONType,
+		ReadBufferSize:      4000,
+		WriteBufferSize:     4000,
+		ReadWorkerNum:       10,
+		IsForbidIPV6:        false,
 	}
 }
 func (c *Config) WithURL(url string) *Config {
@@ -80,7 +87,25 @@ func (c *Config) SetReadTimeout(timeout time.Duration) *Config {
 	c.ReadTimeout = timeout
 	return c
 }
-func (c *Config) SetMessageType(payloadType PayloadType) *Config {
-	c.payloadType = payloadType
+
+func (c *Config) ForbidIPV6() *Config {
+	c.IsForbidIPV6 = true
+	return c
+}
+
+func (c *Config) SetMaxMessageSize(size int) *Config {
+	c.maxMessageSize = int64(size)
+	return c
+}
+func (c *Config) SetReadBufferSize(size int) *Config {
+	c.ReadBufferSize = size
+	return c
+}
+func (c *Config) SetWriteBufferSize(size int) *Config {
+	c.WriteBufferSize = size
+	return c
+}
+func (c *Config) SetReadWorkerNum(num int) *Config {
+	c.ReadWorkerNum = num
 	return c
 }

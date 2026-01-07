@@ -6,19 +6,38 @@ import (
 )
 
 type Payload struct {
-	Event  string          `json:"event"`
-	Id     string          `json:"id"`
-	Arg    Arg             `json:"arg"`
-	Code   string          `json:"code"`
-	Msg    string          `json:"msg"`
-	ConnId string          `json:"connId"`
-	Data   json.RawMessage `json:"data"`
+	Event   string          `json:"event"`
+	Id      string          `json:"id"`
+	Arg     *Arg            `json:"arg,omitempty"`
+	Code    string          `json:"code"`
+	Msg     string          `json:"msg"`
+	ConnId  string          `json:"connId"`
+	Data    json.RawMessage `json:"data"`
+	Op      *string         `json:"op,omitempty"`
+	InTime  *string         `json:"inTime,omitempty"`
+	OutTime *string         `json:"outTime,omitempty"`
 }
 
 type Arg struct {
 	Channel    string  `json:"channel"`
 	InstId     *string `json:"instId,omitempty"`
 	InstFamily *string `json:"instFamily,omitempty"`
+}
+
+func (o *Payload) IsSubscribe() bool {
+
+	if o.Arg == nil {
+		return false
+	}
+	return len(o.Arg.Channel) > 0
+}
+
+func (o *Payload) IsEvent() bool {
+	return len(o.Event) > 0
+}
+
+func (o *Payload) IsOperation() bool {
+	return o.Op != nil && len(*o.Op) > 0
 }
 
 func (o *Payload) IsNotice() bool {
@@ -155,4 +174,135 @@ func ConvertResponse(msg []byte) (*Payload, error) {
 		return nil, err
 	}
 	return &response, nil
+}
+
+func ParseDataToMap(data json.RawMessage) ([]map[string]any, error) {
+
+	var d1 []map[string]any
+
+	if err := json.Unmarshal(data, &d1); err != nil {
+		return nil, err
+	} else {
+		return d1, nil
+	}
+}
+
+type PositionAndBalance struct {
+	PTime     string    `json:"pTime"`
+	EventType string    `json:"eventType"`
+	BalData   []BalData `json:"balData"`
+	PosData   []PosData `json:"posData"`
+	Trades    []struct {
+		InstId  string `json:"instId"`
+		TradeId string `json:"tradeId"`
+	} `json:"trades"`
+}
+
+type BalData struct {
+	Ccy     string `json:"ccy"`
+	CashBal string `json:"cashBal"`
+	UTime   string `json:"uTime"`
+}
+
+type PosData struct {
+	PosId          string `json:"posId"`
+	TradeId        string `json:"tradeId"`
+	InstId         string `json:"instId"`
+	InstType       string `json:"instType"`
+	MgnMode        string `json:"mgnMode"`
+	AvgPx          string `json:"avgPx"`
+	Ccy            string `json:"ccy"`
+	PosSide        string `json:"posSide"`
+	Pos            string `json:"pos"`
+	PosCcy         string `json:"posCcy"`
+	NonSettleAvgPx string `json:"nonSettleAvgPx"`
+	SettledPnl     string `json:"settledPnl"`
+	UTime          string `json:"uTime"`
+}
+
+type Position struct {
+	InstId                 string `json:"instId"`
+	InstType               string `json:"instType"`
+	Adl                    string `json:"adl"`
+	AvailPos               string `json:"availPos"`
+	AvgPx                  string `json:"avgPx"`
+	CTime                  string `json:"cTime"`
+	Ccy                    string `json:"ccy"`
+	DeltaBS                string `json:"deltaBS"`
+	DeltaPA                string `json:"deltaPA"`
+	GammaBS                string `json:"gammaBS"`
+	GammaPA                string `json:"gammaPA"`
+	HedgedPos              string `json:"hedgedPos"`
+	Imr                    string `json:"imr"`
+	Interest               string `json:"interest"`
+	IdxPx                  string `json:"idxPx"`
+	Last                   string `json:"last"`
+	Lever                  string `json:"lever"`
+	Liab                   string `json:"liab"`
+	LiabCcy                string `json:"liabCcy"`
+	LiqPx                  string `json:"liqPx"`
+	MarkPx                 string `json:"markPx"`
+	Margin                 string `json:"margin"`
+	MgnMode                string `json:"mgnMode"`
+	MgnRatio               string `json:"mgnRatio"`
+	Mmr                    string `json:"mmr"`
+	NotionalUsd            string `json:"notionalUsd"`
+	OptVal                 string `json:"optVal"`
+	PTime                  string `json:"pTime"`
+	PendingCloseOrdLiabVal string `json:"pendingCloseOrdLiabVal"`
+	Pos                    string `json:"pos"`
+	BaseBorrowed           string `json:"baseBorrowed"`
+	BaseInterest           string `json:"baseInterest"`
+	QuoteBorrowed          string `json:"quoteBorrowed"`
+	QuoteInterest          string `json:"quoteInterest"`
+	PosCcy                 string `json:"posCcy"`
+	PosId                  string `json:"posId"`
+	PosSide                string `json:"posSide"`
+	SpotInUseAmt           string `json:"spotInUseAmt"`
+	ClSpotInUseAmt         string `json:"clSpotInUseAmt"`
+	MaxSpotInUseAmt        string `json:"maxSpotInUseAmt"`
+	SpotInUseCcy           string `json:"spotInUseCcy"`
+	BizRefId               string `json:"bizRefId"`
+	BizRefType             string `json:"bizRefType"`
+	ThetaBS                string `json:"thetaBS"`
+	ThetaPA                string `json:"thetaPA"`
+	TradeId                string `json:"tradeId"`
+	UTime                  string `json:"uTime"`
+	Upl                    string `json:"upl"`
+	UplLastPx              string `json:"uplLastPx"`
+	UplRatio               string `json:"uplRatio"`
+	UplRatioLastPx         string `json:"uplRatioLastPx"`
+	VegaBS                 string `json:"vegaBS"`
+	VegaPA                 string `json:"vegaPA"`
+	RealizedPnl            string `json:"realizedPnl"`
+	Pnl                    string `json:"pnl"`
+	Fee                    string `json:"fee"`
+	FundingFee             string `json:"fundingFee"`
+	LiqPenalty             string `json:"liqPenalty"`
+	NonSettleAvgPx         string `json:"nonSettleAvgPx"`
+	SettledPnl             string `json:"settledPnl"`
+
+	CloseOrderAlgo []CloseOrderAlgo `json:"closeOrderAlgo"`
+}
+
+type CloseOrderAlgo struct {
+	AlgoId          string `json:"algoId"`
+	SlTriggerPx     string `json:"slTriggerPx"`
+	SlTriggerPxType string `json:"slTriggerPxType"`
+	TpTriggerPx     string `json:"tpTriggerPx"`
+	TpTriggerPxType string `json:"tpTriggerPxType"`
+	CloseFraction   string `json:"closeFraction"`
+}
+
+type TradeFill struct {
+	InstId   string `json:"instId"`   // 产品ID，如 BTC-USDT-SWAP
+	FillSz   string `json:"fillSz"`   // 成交数量
+	FillPx   string `json:"fillPx"`   // 成交价格
+	Side     string `json:"side"`     // buy / sell
+	Ts       string `json:"ts"`       // 成交时间戳（毫秒）
+	OrdId    string `json:"ordId"`    // 订单ID
+	ClOrdId  string `json:"clOrdId"`  // 客户自定义订单ID
+	TradeId  string `json:"tradeId"`  // 成交ID
+	ExecType string `json:"execType"` // 执行类型（T = Trade）
+	Count    string `json:"count"`    // 成交笔数
 }

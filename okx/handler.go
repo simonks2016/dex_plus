@@ -8,10 +8,9 @@ import (
 )
 
 type MarketEvent interface {
-	Trade | Ticker | OrderBook | Kline | CallAuctionDetails
+	Trade | Ticker | OrderBook | Kline | CallAuctionDetails | TradeFill | PositionAndBalance | Position
 }
 
-type handler[T MarketEvent] func(data T) error
 type Caller func(payload *Payload) error
 
 func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
@@ -23,10 +22,6 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 
 	trimmed := bytes.TrimSpace(resp.Data)
 	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
-		return nil, nil
-	}
-
-	if !json.Valid(trimmed) {
 		return nil, nil
 	}
 
@@ -109,6 +104,45 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		var v []CallAuctionDetails
 		if err := json.Unmarshal(resp.Data, &v); err != nil {
 			return nil, fmt.Errorf("unmarshal trade failed: %w", err)
+		}
+		ret := make([]T, len(v))
+		for i := range v {
+			ret[i] = any(v[i]).(T)
+		}
+		return ret, nil
+	case TradeFill:
+		if ch != "fills" {
+			return nil, fmt.Errorf("type/channel mismatch: want trade fills but channel=%s", ch)
+		}
+		var v []TradeFill
+		if err := json.Unmarshal(resp.Data, &v); err != nil {
+			return nil, fmt.Errorf("unmarshal trade failed: %w", err)
+		}
+		ret := make([]T, len(v))
+		for i := range v {
+			ret[i] = any(v[i]).(T)
+		}
+		return ret, nil
+	case PositionAndBalance:
+		if ch != "balance_and_position" {
+			return nil, fmt.Errorf("type/channel mismatch: want balance_and_position but channel=%s", ch)
+		}
+		var v []PositionAndBalance
+		if err := json.Unmarshal(resp.Data, &v); err != nil {
+			return nil, fmt.Errorf("unmarshal position_and_balance: %w", err)
+		}
+		ret := make([]T, len(v))
+		for i := range v {
+			ret[i] = any(v[i]).(T)
+		}
+		return ret, nil
+	case Position:
+		if ch != "positions" {
+			return nil, fmt.Errorf("type/channel mismatch: want positions but channel=%s", ch)
+		}
+		var v []Position
+		if err := json.Unmarshal(resp.Data, &v); err != nil {
+			return nil, fmt.Errorf("unmarshal position: %w", err)
 		}
 		ret := make([]T, len(v))
 		for i := range v {
