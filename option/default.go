@@ -35,6 +35,7 @@ func WithLogger(log *log.Logger) Option {
 	return NewCustomOption("logger", log)
 
 }
+func WithSandBoxEnvironment() Option { return NewCustomOption("is_sandbox_environment", true) }
 
 type CustomOption struct {
 	name  string

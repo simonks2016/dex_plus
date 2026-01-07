@@ -27,7 +27,15 @@ func NewPublic(bg context.Context, opts ...option.Option) OKXPublic {
 	cfg.SetReadWorkerNum(100)
 	cfg.SetReadTimeout(time.Second * time.Duration(10))
 	cfg.SetWriteTimeout(time.Second * time.Duration(10))
-	cfg.WithURL("wss://ws.okx.com:8443/ws/v5/public")
+	cfg.WithURL(okx.PublicURL(true))
+
+	if op := option.GetOption("is_sandbox_environment", opts...); op != nil {
+		if isSandBox, ok := op.(bool); ok {
+			cfg.WithURL(okx.PublicURL(!isSandBox))
+		}
+	}
+	opts = append(opts, option.WithURL(cfg.URL))
+
 	// 创建一个新的客户端
 	cli := internal.NewOKXClient(
 		bg,

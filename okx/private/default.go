@@ -25,8 +25,14 @@ func NewPrivate(apiKey, secretKey, passphrase string, bg context.Context, option
 	cfg.SetReadWorkerNum(100)
 	cfg.SetReadTimeout(time.Second * time.Duration(10))
 	cfg.SetWriteTimeout(time.Second * time.Duration(10))
-	cfg.WithURL("wss://ws.okx.com:8443/ws/v5/private")
+	cfg.WithURL(okx.PrivateURL(true))
 
+	if runMode := option.GetOption("is_sandbox_environment", options...); runMode != nil {
+		if isSandBox, ok := runMode.(bool); ok {
+			cfg.WithURL(okx.PrivateURL(!isSandBox))
+		}
+	}
+	options = append(options, option.WithURL(cfg.URL))
 	// 创建新的
 	cli := internal.NewOKXClient(bg,
 		internal.NewAuth(apiKey, passphrase, secretKey),
