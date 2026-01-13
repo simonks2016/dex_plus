@@ -47,6 +47,7 @@ type OKXPrivate interface {
 
 	SubscribePositionAndBalance(func(posAndBala ...okx.PositionAndBalance) error)
 	SubscribeTrade(func(trade ...okx.TradeFill) error)
+	SubscribeOrderFilled(func(orders ...okx.OrderState) error)
 
 	PlaceOrder(...param.PlaceOrderParams) error
 	AmendOrder(...param.AmendOrder) error
