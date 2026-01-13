@@ -16,13 +16,14 @@ import (
 )
 
 type OKXClient struct {
-	client     *websocket.WsClient
-	auth       *Auth
-	ctx        context.Context
-	logger     *log.Logger
-	handlerMap map[string][]okx.Caller
-	pool       *ants.Pool
-	authDone   atomic.Pointer[func(error)]
+	client      *websocket.WsClient
+	auth        *Auth
+	ctx         context.Context
+	logger      *log.Logger
+	handlerMap  map[string][]okx.Caller
+	pool        *ants.Pool
+	authDone    atomic.Pointer[func(error)]
+	sendTimeOut time.Duration
 }
 
 func NewOKXClient(ctx context.Context, auth *Auth, cfg *websocket.Config, opts ...option.Option) *OKXClient {
@@ -64,10 +65,11 @@ func NewOKXClient(ctx context.Context, auth *Auth, cfg *websocket.Config, opts .
 	}
 
 	cli := &OKXClient{
-		client: websocket.NewWsClient(ctx, cfg),
-		auth:   auth,
-		ctx:    ctx,
-		pool:   pool,
+		client:      websocket.NewWsClient(ctx, cfg),
+		auth:        auth,
+		ctx:         ctx,
+		pool:        pool,
+		sendTimeOut: time.Minute * 20,
 	}
 	cli.client.SetObserver(cli)
 	cli.logger = cfg.Logger
@@ -244,7 +246,7 @@ func buildSubParams(channel, instId, instType string) param.SubscribeChannelPara
 }
 
 func (o *OKXClient) sendWithTimeout(data []byte) error {
-	ctx, cancel := context.WithTimeout(o.ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(o.ctx, o.sendTimeOut)
 	defer cancel()
 	return o.client.Send(ctx, data)
 }
