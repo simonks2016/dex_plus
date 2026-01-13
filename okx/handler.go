@@ -8,7 +8,7 @@ import (
 )
 
 type MarketEvent interface {
-	Trade | Ticker | OrderBook | Kline | CallAuctionDetails | TradeFill | PositionAndBalance | Position
+	Trade | Ticker | OrderBook | Kline | CallAuctionDetails | TradeFill | PositionAndBalance | Position | OrderState
 }
 
 type Caller func(payload *Payload) error
@@ -149,6 +149,20 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 			ret[i] = any(v[i]).(T)
 		}
 		return ret, nil
+	case OrderState:
+		if ch != "orders" {
+			return nil, fmt.Errorf("type/channel mismatch: want positions but channel=%s", ch)
+		}
+		var v []OrderState
+		if err := json.Unmarshal(resp.Data, &v); err != nil {
+			return nil, fmt.Errorf("unmarshal order state: %w", err)
+		}
+		ret := make([]T, len(v))
+		for i := range v {
+			ret[i] = any(v[i]).(T)
+		}
+		return ret, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported generic type")
 	}

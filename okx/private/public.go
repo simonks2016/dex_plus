@@ -61,6 +61,30 @@ func (p *Private) SubscribeTrade(handler func(trade ...okx.TradeFill) error) {
 	}
 }
 
+func (p *Private) SubscribeOrderFilled(handler func(orders ...okx.OrderState) error) {
+
+	instType := "ANY"
+	channel := "orders"
+
+	p1 := param.NewSubscribeParameters(
+		param.SubscribeChannelParams{
+			Channel:  channel,
+			InstType: &instType,
+		},
+	).Encode()
+
+	//order
+	if err := p.client.SubscribeChannel(p1, channel, func(payload *okx.Payload) error {
+		data, err := okx.ParseData[okx.OrderState](payload)
+		if err != nil {
+			return err
+		}
+		return handler(data...)
+	}); err != nil {
+		return
+	}
+}
+
 // SetLogger 设置日志记录器
 // parameters:
 // @logger *log.Logger
