@@ -23,13 +23,13 @@ type PlaceOrderParams struct {
 
 type CancelOrder struct {
 	InstId     *string `json:"instId,omitempty"`
-	InstIdCode *string `json:"instIdCode,omitempty"`
+	InstIdCode *int    `json:"instIdCode,omitempty"`
 	OrdId      *string `json:"ordId,omitempty"`
 	ClOrdId    *string `json:"clOrdId,omitempty"`
 }
 
 type AmendOrder struct {
-	InstIdCode  *int64  `json:"instIdCode,omitempty"`
+	InstIdCode  *int    `json:"instIdCode,omitempty"`
 	CxlOnFail   *bool   `json:"cxlOnFail,omitempty"`
 	OrdId       *string `json:"ordId,omitempty"`
 	ClOrdId     *string `json:"clOrdId,omitempty"`

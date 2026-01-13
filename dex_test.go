@@ -2,7 +2,6 @@ package DexPlus
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/panjf2000/ants/v2"
-	"github.com/simonks2016/dex_plus/okx"
-	"github.com/simonks2016/dex_plus/okx/public"
+	"github.com/simonks2016/dex_plus/okx/private"
 	"github.com/simonks2016/dex_plus/option"
 )
 
@@ -25,54 +23,31 @@ func NewLogger() *log.Logger {
 
 func TestNew(t *testing.T) {
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
+	// 释放资源
+	defer stop()
 
 	pool, _ := ants.NewPool(100, ants.WithNonblocking(true))
-	logger := NewLogger()
+	//logger := NewLogger()
 
-	/*
-		p := private.NewPrivate(
-			"f668642d-ad76-4e72-8c85-0075acd73a5a",
-			"E698B82FDF9CB97C333C306669D6AD4D",
-			"testBbq20251002@",
-			ctx,
-			option.WithWriteBufferSize(4000),
-			option.WithReadBufferSize(4000),
-			option.WithThreadPool(pool),
-			option.WithURL("wss://wspap.okx.com:8443/ws/v5/private"),
-			option.WithForbidIpv6(true),
-			option.WithLogger(logger),
-		)*/
-
-	p := public.NewPublic(
+	p := private.NewPrivate(
+		"f668642d-ad76-4e72-8c85-0075acd73a5a",
+		"E698B82FDF9CB97C333C306669D6AD4D",
+		"testBbq20251002@",
 		ctx,
 		option.WithWriteBufferSize(4000),
 		option.WithReadBufferSize(4000),
-		option.WithForbidIpv6(true),
-		option.WithLogger(logger),
 		option.WithThreadPool(pool),
+		option.WithSandBoxEnvironment(),
+		option.WithForbidIpv6(true),
 	)
-
-	p.SetLogger(logger)
-	p.SetInstId("BTC-USDT")
 
 	p.Connect()
 
-	p.SubscribeTrade(func(trades []okx.Trade) error {
-		for _, trade := range trades {
-			fmt.Printf("%s:%s %s on %s\n", trade.InstId, trade.Side, trade.Sz, trade.Px)
-		}
-		return nil
-	})
-
-	// 创建频道
-	sig := make(chan os.Signal, 1)
-	// 假如系统关闭
-	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
-
 	select {
-
-	case <-sig:
+	case <-ctx.Done():
 		p.Close()
 	}
 

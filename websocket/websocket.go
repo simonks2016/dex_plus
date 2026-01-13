@@ -126,6 +126,7 @@ func (c *WsClient) connLoop() {
 			c.closeAndClearConn()
 
 			backoff := backoffMin
+		loop1:
 			for {
 				conn, _, err := c.dialer.DialContext(c.ctx, c.url, c.header)
 				if err == nil {
@@ -146,7 +147,7 @@ func (c *WsClient) connLoop() {
 					} else {
 						c.markReady()
 					}
-					break
+					break loop1
 				}
 
 				c.logger.Printf("[ws] dial failed: %v, retrying in %v", err, backoff)
@@ -189,6 +190,7 @@ func (c *WsClient) writeMessage(mt int, data []byte) {
 	}
 
 	_ = conn.SetWriteDeadline(time.Now().Add(c.cfg.WriteTimeout))
+	//
 	if err := conn.WriteMessage(mt, data); err != nil {
 		c.signalReconnect("write failed: " + err.Error())
 	}
