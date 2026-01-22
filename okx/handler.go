@@ -69,18 +69,22 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		return ret, nil
 
 	case OrderBook:
-		// 你可能订阅的是 books / books5 / books50
 		if !strings.HasPrefix(ch, "books") {
-			return nil, fmt.Errorf("type/channel mismatch: want orderbook(T=OKXOrderBook) but channel=%s", ch)
+			return nil, fmt.Errorf("type/channel mismatch: want orderbook(T=OrderBook) but channel=%s", ch)
 		}
 
 		var v []OrderBook
 		if err := json.Unmarshal(resp.Data, &v); err != nil {
 			return nil, fmt.Errorf("unmarshal orderbook failed: %w", err)
 		}
+
 		ret := make([]T, len(v))
 		for i := range v {
-			ret[i] = any(v[i]).(T)
+			ob := v[i] // 拷贝
+			if resp.Arg != nil && resp.Arg.InstId != nil {
+				ob.InstId = *resp.Arg.InstId
+			}
+			ret[i] = any(ob).(T) // T 必须是 OrderBook
 		}
 		return ret, nil
 

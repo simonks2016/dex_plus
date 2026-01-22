@@ -67,33 +67,40 @@ type OrderBook struct {
 	Checksum  int64      `json:"checksum"`
 	PrevSeqId int64      `json:"prevSeqId"`
 	SeqId     int64      `json:"seqId"`
+	InstId    string     `json:"instId"`
 }
 
-func (o *OrderBook) GetAsks() []map[string]string {
+type BookLevel struct {
+	Price     string `json:"price"`
+	Size      string `json:"size"`
+	OrderSize string `json:"orderSize"`
+}
 
-	var response []map[string]string
+func (o *OrderBook) GetAsks() []BookLevel {
+
+	var response = make([]BookLevel, 0, len(o.Asks))
 
 	for _, ask := range o.Asks {
 		if len(ask) >= 4 {
-			response = append(response, map[string]string{
-				"price":      ask[0],
-				"size":       ask[1],
-				"order_size": ask[3],
+			response = append(response, BookLevel{
+				Price:     ask[0],
+				Size:      ask[1],
+				OrderSize: ask[3],
 			})
 		}
 	}
 	return response
 }
-func (o *OrderBook) GetBids() []map[string]string {
+func (o *OrderBook) GetBids() []BookLevel {
 
-	var response []map[string]string
+	var response []BookLevel
 
 	for _, bid := range o.Bids {
 		if len(bid) >= 4 {
-			response = append(response, map[string]string{
-				"price":      bid[0],
-				"size":       bid[1],
-				"order_size": bid[3],
+			response = append(response, BookLevel{
+				Price:     bid[0],
+				Size:      bid[1],
+				OrderSize: bid[3],
 			})
 		}
 	}

@@ -45,6 +45,7 @@ func NewPrivate(apiKey, secretKey, passphrase string, bg context.Context, option
 type OKXPrivate interface {
 	SetLogger(logger *log.Logger) OKXPrivate
 
+	SubscribePosition(func(pos ...okx.Position) error, *int64)
 	SubscribePositionAndBalance(func(posAndBala ...okx.PositionAndBalance) error)
 	SubscribeTrade(func(trade ...okx.TradeFill) error)
 	SubscribeOrderFilled(func(orders ...okx.OrderState) error)

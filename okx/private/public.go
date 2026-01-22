@@ -61,6 +61,39 @@ func (p *Private) SubscribeTrade(handler func(trade ...okx.TradeFill) error) {
 	}
 }
 
+func (p *Private) SubscribePosition(handler func(pos ...okx.Position) error, updateIntervalMS *int64) {
+
+	instType := "ANY"
+	channel := "positions"
+	var extraParamsStr *string
+
+	if updateIntervalMS != nil {
+		var extraParams = make(map[string]interface{})
+		// 赋值
+		extraParams["updateInterval"] = *updateIntervalMS
+		extraParamsStr = param.NewExtraParam(extraParams)
+	}
+
+	p1 := param.NewSubscribeParameters(
+		param.SubscribeChannelParams{
+			Channel:     channel,
+			InstType:    &instType,
+			ExtraParams: extraParamsStr,
+		},
+	).Encode()
+
+	//positions
+	if err := p.client.SubscribeChannel(p1, channel, func(payload *okx.Payload) error {
+		data, err := okx.ParseData[okx.Position](payload)
+		if err != nil {
+			return err
+		}
+		return handler(data...)
+	}); err != nil {
+		return
+	}
+}
+
 func (p *Private) SubscribeOrderFilled(handler func(orders ...okx.OrderState) error) {
 
 	instType := "ANY"

@@ -1,12 +1,13 @@
 package param
 
-
+import "encoding/json"
 
 type SubscribeChannelParams struct {
-	Channel    string  `json:"channel"`
-	InstId     *string `json:"instId,omitempty"`
-	InstFamily *string `json:"instFamily,omitempty"`
-	InstType   *string `json:"instType,omitempty"`
+	Channel     string  `json:"channel"`
+	InstId      *string `json:"instId,omitempty"`
+	InstFamily  *string `json:"instFamily,omitempty"`
+	InstType    *string `json:"instType,omitempty"`
+	ExtraParams *string `json:"extra_params,omitempty"`
 }
 
 func NewSubscribeParameters(args ...SubscribeChannelParams) *Parameters[SubscribeChannelParams] {
@@ -42,4 +43,15 @@ func NewInstTypeArg(instType, channel string) SubscribeChannelParams {
 		Channel:  channel,
 		InstType: &instType,
 	}
+}
+
+func NewExtraParam(data map[string]any) *string {
+
+	marshal, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+
+	d := string(marshal)
+	return &d
 }
