@@ -1,8 +1,9 @@
-package websocket
+package client
 
 import (
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -31,6 +32,7 @@ type Config struct {
 	WriteTimeout        time.Duration // write deadline
 	ReconnectBackoffMin time.Duration
 	ReconnectBackoffMax time.Duration
+	SendTimeout         time.Duration
 
 	maxMessageSize int64
 
@@ -38,6 +40,7 @@ type Config struct {
 	ReadBufferSize  int
 	ReadWorkerNum   int
 	IsForbidIPV6    bool
+	IsNeedAuth      bool
 }
 
 func NewConfig() *Config {
@@ -53,6 +56,7 @@ func NewConfig() *Config {
 		WriteBufferSize:     4000,
 		ReadWorkerNum:       10,
 		IsForbidIPV6:        false,
+		Logger:              log.New(os.Stdout, "", log.LstdFlags),
 	}
 }
 func (c *Config) WithURL(url string) *Config {
@@ -67,6 +71,7 @@ func (c *Config) WithLogger(logger *log.Logger) *Config {
 	c.Logger = logger
 	return c
 }
+
 func (c *Config) SetHandshakeTimeout(timeout time.Duration) *Config {
 	c.HandshakeTimeout = timeout
 	return c

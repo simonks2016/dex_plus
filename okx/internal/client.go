@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -9,104 +10,45 @@ import (
 	"time"
 
 	"github.com/panjf2000/ants/v2"
+	"github.com/simonks2016/dex_plus/internal/client"
 	"github.com/simonks2016/dex_plus/okx"
 	"github.com/simonks2016/dex_plus/okx/param"
-	"github.com/simonks2016/dex_plus/option"
-	"github.com/simonks2016/dex_plus/websocket"
 )
 
 type OKXClient struct {
-	client      *websocket.WsClient
-	auth        *Auth
-	ctx         context.Context
-	logger      *log.Logger
-	handlerMap  map[string][]okx.Caller
-	pool        *ants.Pool
-	authDone    atomic.Pointer[func(error)]
-	sendTimeOut time.Duration
+	client *client.WsClient
+	auth   *Auth
+	ctx    context.Context
+
+	//
+	logger *log.Logger
+	pool   *ants.Pool
+
+	handlerMap map[string][]okx.Caller
+
+	authDone        atomic.Bool
+	sendTimeOut     time.Duration
+	subscribeParams [][]byte
+	isNeedAuth      bool
+	url             string
 }
 
-func NewOKXClient(ctx context.Context, auth *Auth, cfg *websocket.Config, opts ...option.Option) *OKXClient {
-
-	var pool *ants.Pool
-
-	if val := option.GetOption("read_buffer_size", opts...); val != nil {
-		if v, ok := val.(int64); ok {
-			cfg.ReadBufferSize = int(v)
-		}
-	}
-	if val := option.GetOption("write_buffer_size", opts...); val != nil {
-		if v, ok := val.(int64); ok {
-			cfg.WriteBufferSize = int(v)
-		}
-	}
-	// 获取链接URL
-	if val := option.GetOption("url", opts...); val != nil {
-		cfg.URL = val.(string)
-	}
-	// 获取是否禁止IPv6
-	if val := option.GetOption("forbid_ipv6", opts...); val != nil {
-		if v, ok := val.(bool); ok {
-			cfg.IsForbidIPV6 = v
-		}
-	} // 获取新的线程池
-	if p1 := option.GetOption("thread_pool", opts...); p1 != nil {
-		if p, ok := p1.(*ants.Pool); !ok {
-			panic("Need Set the thread pool")
-		} else {
-			pool = p
-		}
-	}
-	// 获取日志记录器
-	if val := option.GetOption("logger", opts...); val != nil {
-		if v, ok := val.(*log.Logger); ok {
-			cfg.Logger = v
-		}
-	}
+func NewOKXClient(ctx context.Context, auth *Auth, cfg *client.Config) *OKXClient {
 
 	cli := &OKXClient{
-		client:      websocket.NewWsClient(ctx, cfg),
-		auth:        auth,
-		ctx:         ctx,
-		pool:        pool,
-		sendTimeOut: time.Minute * 20,
+		client:          client.NewWsClient(ctx, cfg),
+		auth:            auth,
+		ctx:             ctx,
+		sendTimeOut:     cfg.SendTimeout,
+		subscribeParams: make([][]byte, 0),
+		handlerMap:      make(map[string][]okx.Caller),
+		isNeedAuth:      cfg.IsNeedAuth,
+		logger:          cfg.Logger,
+		url:             cfg.URL,
 	}
 	cli.client.SetObserver(cli)
-	cli.logger = cfg.Logger
 
 	return cli
-}
-func (o *OKXClient) OnDisconnecting() {
-	// 取消全部订阅
-	if err := o.UnsubscribeAll(); err != nil {
-		if o.logger != nil {
-			o.logger.Printf("[error] error on disconnecting client: %v", err)
-		}
-		return
-	}
-	if o.logger != nil {
-		o.logger.Println("[disconnecting]")
-	}
-}
-func (o *OKXClient) OnDisconnected()            {}
-func (o *OKXClient) OnConnected()               {}
-func (o *OKXClient) OnConnecting(reason string) {}
-func (o *OKXClient) OnAuth(sender func([]byte) error, done func(error)) {
-
-	if o.auth == nil {
-		_ = sender(nil)
-		done(nil)
-		return
-	} else {
-		// 生成信息
-		data := param.NewLoginParameters(o.auth.ApiKey, o.auth.Passphrase, o.auth.SecretKey)
-		if err := sender(data); err != nil {
-			o.logger.Println(err)
-			return
-		}
-		// 将验证之后回调函数保存下来
-		o.setAuthDone(done)
-	}
 }
 
 func (o *OKXClient) OnError(err error) {
@@ -124,6 +66,7 @@ func (o *OKXClient) OnMessage(msg []byte) error {
 		o.logger.Printf("[error] failed to encode payload,%s", err.Error())
 		return nil
 	}
+
 	// 将消息分流到各个处理单位上
 	switch true {
 	case resp.IsSubscribe():
@@ -158,7 +101,6 @@ func (o *OKXClient) onSubscribe(channel string, payload *okx.Payload) error {
 					o.OnError(fmt.Errorf("handler panic, channel=%s: %v", channel, r))
 				}
 			}()
-
 			if err := caller(payload); err != nil {
 				o.OnError(err)
 			}
@@ -174,15 +116,11 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 
 	switch strings.ToLower(event) {
 	case "login":
-		if v := o.authDone.Swap(nil); v != nil {
-			callback := *v
-			//
-			if payload.Code == "0" {
-				callback(nil)
-				if o.logger != nil {
-					o.logger.Printf("[okx] successfully logged in, code=%s", payload.Code)
-				}
-			}
+		if !o.authDone.Load() {
+			// 将自动验证设置为真
+			o.authDone.Swap(true)
+			// 发送订阅信息到OKX
+			o.sendSubscribeChannelMessage()
 		}
 	case "error":
 		if o.logger != nil {
@@ -190,6 +128,17 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 		}
 	case "notice":
 		o.client.Reconnect("the okx command we ar reconnect")
+	case "subscribe":
+		if o.logger != nil {
+			o.logger.Printf("[info]Successfully subscribed to “%s”",
+				func() string {
+					if payload.Arg != nil {
+						return payload.Arg.Channel
+					}
+					return ""
+				}())
+		}
+
 	}
 	return nil
 }
@@ -227,11 +176,7 @@ func (o *OKXClient) onOpEvent(event string, payload *okx.Payload) error {
 	}
 }
 
-func (o *OKXClient) setAuthDone(done func(error)) {
-	o.authDone.Store(&done)
-}
-
-// 复用构建参数：减少重复 lambda + 更清晰
+// buildSubParams 复用构建参数：减少重复 lambda + 更清晰
 func buildSubParams(channel, instId, instType string) param.SubscribeChannelParams {
 	p := param.SubscribeChannelParams{
 		Channel: channel,
@@ -246,32 +191,31 @@ func buildSubParams(channel, instId, instType string) param.SubscribeChannelPara
 }
 
 func (o *OKXClient) sendWithTimeout(data []byte) error {
+
+	if o.isNeedAuth && !o.authDone.Load() {
+		return errors.New("authentication required. Identity verification is enabled for this API, but no valid authentication was found")
+	}
+
 	ctx, cancel := context.WithTimeout(o.ctx, o.sendTimeOut)
 	defer cancel()
+	//
 	return o.client.Send(ctx, data)
 }
 
-// SubscribeChannel：
+// SubscribeChannel 订阅频道
 // Parameters:
 // @param string 可选
 // @caller []okx.Okx 回调函数
 func (o *OKXClient) SubscribeChannel(param []byte, channel string, caller ...okx.Caller) error {
 
-	if err := o.sendWithTimeout(param); err != nil {
-		return err
-	}
-	if len(caller) == 0 {
-		return nil
-	}
-
-	if o.handlerMap == nil {
-		o.handlerMap = make(map[string][]okx.Caller, 8)
-	}
+	// 将订阅参数放入到数组里面
+	o.subscribeParams = append(o.subscribeParams, param)
+	// 将处理函数放入map当中
 	o.handlerMap[channel] = append(o.handlerMap[channel], caller...)
 	return nil
 }
 
-// UnsubscribeAll：
+// UnsubscribeAll 取消订阅各个频道
 // Parameters:
 // @instId string 可选
 // @instType string 可选
@@ -306,6 +250,11 @@ func (o *OKXClient) Send(msg []byte) error {
 	return o.sendWithTimeout(msg)
 }
 func (o *OKXClient) Connect() {
+
+	if o.pool == nil {
+		panic("the thread pool is nil")
+	}
+
 	o.client.Start()
 }
 func (o *OKXClient) Close() {
@@ -315,7 +264,21 @@ func (o *OKXClient) Reconnect(reason string) {
 	o.client.Reconnect(reason)
 }
 
-func (o *OKXClient) WithAntsPool(pool *ants.Pool) *OKXClient {
+func (o *OKXClient) sendSubscribeChannelMessage() {
+	// 遍历订阅
+	for _, subscribeParam := range o.subscribeParams {
+		// 发送订阅信息
+		if err := o.sendWithTimeout(subscribeParam); err != nil {
+			if o.logger != nil {
+				o.logger.Printf("[error] failed to subscribe channel: %v", err.Error())
+			}
+			return
+		}
+	}
+	return
+}
+
+func (o *OKXClient) SetThreadPool(pool *ants.Pool) *OKXClient {
 	o.pool = pool
 	return o
 }

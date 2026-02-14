@@ -29,7 +29,7 @@ func (o *Payload) IsSubscribe() bool {
 	if o.Arg == nil {
 		return false
 	}
-	return len(o.Arg.Channel) > 0
+	return len(o.Arg.Channel) > 0 && len(o.Event) <= 0 && o.Op == nil
 }
 
 func (o *Payload) IsEvent() bool {
@@ -107,7 +107,7 @@ func (o *OrderBook) GetBids() []BookLevel {
 	return response
 }
 
-type Trade struct {
+type AggregatedTrades struct {
 	InstId  string `json:"instId"`
 	TradeId string `json:"tradeId"`
 	Ts      string `json:"ts"`
@@ -115,6 +115,17 @@ type Trade struct {
 	Sz      string `json:"sz"`
 	Side    string `json:"side"`
 	Count   string `json:"count"`
+	Source  string `json:"source"`
+	SeqId   int64  `json:"seqId"`
+}
+
+type RawTrades struct {
+	InstId  string `json:"instId"`
+	TradeId string `json:"tradeId"`
+	Ts      string `json:"ts"`
+	Px      string `json:"px"`
+	Sz      string `json:"sz"`
+	Side    string `json:"side"`
 	Source  string `json:"source"`
 	SeqId   int64  `json:"seqId"`
 }

@@ -8,12 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/simonks2016/dex_plus/okx"
 	"github.com/simonks2016/dex_plus/okx/private"
-	"github.com/simonks2016/dex_plus/option"
 )
 
 func NewLogger() *log.Logger {
@@ -32,45 +30,37 @@ func TestNew(t *testing.T) {
 	// 释放资源
 	defer stop()
 
-	pool, _ := ants.NewPool(100, ants.WithNonblocking(true))
-	logger := NewLogger()
+	pool, _ := ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 
-	p := private.NewPrivate(
-		"f668642d-ad76-4e72-8c85-0075acd73a5a",
-		"E698B82FDF9CB97C333C306669D6AD4D",
-		"testBbq20251002@",
+	p1 := private.NewPrivate(
+		"",
+		"",
+		"",
 		ctx,
-		option.WithWriteBufferSize(4000),
-		option.WithReadBufferSize(4000),
-		option.WithThreadPool(pool),
-		option.WithSandBoxEnvironment(),
-		option.WithForbidIpv6(true),
-		option.WithLogger(logger),
+		pool,
+		okx.WithForbidIpV6(),
+		okx.WithLogger(NewLogger()),
+		okx.WithSandboxEnv(),
 	)
 
-	p.Connect()
+	p1.Connect()
+	p1.SubscribePositionAndBalance(func(posAndBalas ...okx.PositionAndBalance) error {
 
-	time.Sleep(time.Second * time.Duration(5))
-
-	p.SubscribePosition(func(pos ...okx.Position) error {
-		for _, p1 := range pos {
-			side := "long"
-			if p1.PosCcy == p1.Ccy {
-				side = "short"
-			}
-
-			fmt.Println(side, p1.Pos, p1.Liab)
+		for _, posAndBala := range posAndBalas {
+			fmt.Println(posAndBala)
 		}
 		return nil
-	}, nil)
+	})
 
 	select {
 	case <-ctx.Done():
-		p.Close()
+
+		//
+		pool.Free()
+		p1.Close()
 	}
 
 }
 
 // 存在问题：
-// 第一：假如网络抖动会导致订阅消息，因没有得到验证而吞了。
 // 第二: 验证失败会出现批量发送验证信息，不停的重新启动

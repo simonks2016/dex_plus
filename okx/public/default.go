@@ -5,10 +5,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
+	"github.com/simonks2016/dex_plus/internal/client"
 	"github.com/simonks2016/dex_plus/okx"
 	"github.com/simonks2016/dex_plus/okx/internal"
-	"github.com/simonks2016/dex_plus/option"
-	"github.com/simonks2016/dex_plus/websocket"
 )
 
 type Public struct {
@@ -19,29 +19,30 @@ type Public struct {
 	ctx        context.Context
 }
 
-func NewPublic(bg context.Context, opts ...option.Option) OKXPublic {
+func NewPublic(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPublic {
 
-	cfg := websocket.NewConfig()
+	cfg := client.NewConfig()
 	cfg.SetWriteBufferSize(4000)
 	cfg.SetReadBufferSize(4000)
 	cfg.SetReadWorkerNum(100)
 	cfg.SetReadTimeout(time.Second * time.Duration(10))
 	cfg.SetWriteTimeout(time.Second * time.Duration(10))
+	cfg.SendTimeout = time.Minute * time.Duration(10)
 	cfg.WithURL(okx.PublicURL(true))
+	cfg.IsNeedAuth = false
+	cfg.IsForbidIPV6 = false
 
-	if op := option.GetOption("is_sandbox_environment", opts...); op != nil {
-		if isSandBox, ok := op.(bool); ok {
-			cfg.WithURL(okx.PublicURL(!isSandBox))
-		}
+	for _, opt := range opts {
+		opt(cfg)
 	}
-	opts = append(opts, option.WithURL(cfg.URL))
+
+	if pool != nil {
+		pool, _ = ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
+	}
 
 	// 创建一个新的客户端
-	cli := internal.NewOKXClient(
-		bg,
-		nil,
-		cfg,
-		opts...)
+	cli := internal.NewOKXClient(bg, nil, cfg)
+	cli.SetThreadPool(pool)
 
 	return &Public{
 		ctx:    bg,
@@ -57,6 +58,7 @@ type OKXPublic interface {
 	Reconnect()
 	Close()
 	SubscribeTicker(callback func(tickers []okx.Ticker) error)
-	SubscribeTrade(callback func(trade []okx.Trade) error)
+	SubscribeTrade(callback func(trade []okx.AggregatedTrades) error)
+	SubscribeTradeAll(callback func(trade []okx.RawTrades) error)
 	SubscribeBook(channel string, callback func(books []okx.OrderBook) error)
 }

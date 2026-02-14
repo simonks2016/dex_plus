@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
+	"github.com/simonks2016/dex_plus/internal/client"
 	"github.com/simonks2016/dex_plus/okx"
 	"github.com/simonks2016/dex_plus/okx/internal"
 	"github.com/simonks2016/dex_plus/okx/param"
-	"github.com/simonks2016/dex_plus/option"
-	"github.com/simonks2016/dex_plus/websocket"
 )
 
 type Private struct {
@@ -17,27 +17,31 @@ type Private struct {
 	logger *log.Logger
 }
 
-func NewPrivate(apiKey, secretKey, passphrase string, bg context.Context, options ...option.Option) OKXPrivate {
+func NewPrivate(apiKey, secretKey, passphrase string, bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPrivate {
 
-	var cfg = websocket.NewConfig()
+	var cfg = client.NewConfig()
 	cfg.SetWriteBufferSize(4000)
 	cfg.SetReadBufferSize(4000)
 	cfg.SetReadWorkerNum(100)
 	cfg.SetReadTimeout(time.Second * time.Duration(10))
 	cfg.SetWriteTimeout(time.Second * time.Duration(10))
 	cfg.WithURL(okx.PrivateURL(true))
+	cfg.IsNeedAuth = true
+	cfg.SendTimeout = time.Minute * time.Duration(5)
 
-	if runMode := option.GetOption("is_sandbox_environment", options...); runMode != nil {
-		if isSandBox, ok := runMode.(bool); ok {
-			cfg.WithURL(okx.PrivateURL(!isSandBox))
-		}
+	for _, opt := range opts {
+		opt(cfg)
 	}
-	options = append(options, option.WithURL(cfg.URL))
+	cfg.IsNeedAuth = true
+
+	if pool != nil {
+		pool, _ = ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
+	}
 	// 创建新的
 	cli := internal.NewOKXClient(bg,
 		internal.NewAuth(apiKey, passphrase, secretKey),
-		cfg,
-		options...)
+		cfg)
+	cli.SetThreadPool(pool)
 
 	return &Private{client: cli}
 }

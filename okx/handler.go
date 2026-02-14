@@ -8,7 +8,7 @@ import (
 )
 
 type MarketEvent interface {
-	Trade | Ticker | OrderBook | Kline | CallAuctionDetails | TradeFill | PositionAndBalance | Position | OrderState
+	RawTrades | AggregatedTrades | Ticker | OrderBook | Kline | CallAuctionDetails | TradeFill | PositionAndBalance | Position | OrderState
 }
 
 type Caller func(payload *Payload) error
@@ -88,11 +88,24 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		}
 		return ret, nil
 
-	case Trade:
+	case AggregatedTrades:
 		if ch != "trades" {
 			return nil, fmt.Errorf("type/channel mismatch: want trade(T=OKXTrade) but channel=%s", ch)
 		}
-		var v []Trade
+		var v []AggregatedTrades
+		if err := json.Unmarshal(resp.Data, &v); err != nil {
+			return nil, fmt.Errorf("unmarshal trade failed: %w", err)
+		}
+		ret := make([]T, len(v))
+		for i := range v {
+			ret[i] = any(v[i]).(T)
+		}
+		return ret, nil
+	case RawTrades:
+		if ch != "trades-all" {
+			return nil, fmt.Errorf("type/channel mismatch: want trade(T=OKXTrade) but channel=%s", ch)
+		}
+		var v []RawTrades
 		if err := json.Unmarshal(resp.Data, &v); err != nil {
 			return nil, fmt.Errorf("unmarshal trade failed: %w", err)
 		}

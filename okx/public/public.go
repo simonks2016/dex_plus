@@ -75,7 +75,7 @@ func (p *Public) buildSubscribeArgs(channel string) []param.SubscribeChannelPara
 }
 
 // subscribe: 通用订阅逻辑
-func subscribe[T okx.MarketEvent](channel string, callback func([]T) error,p *Public) {
+func subscribe[T okx.MarketEvent](channel string, callback func([]T) error, p *Public) {
 	caller := func(resp *okx.Payload) error {
 		data, err := okx.ParseData[T](resp)
 		if err != nil {
@@ -97,20 +97,27 @@ func subscribe[T okx.MarketEvent](channel string, callback func([]T) error,p *Pu
 
 // SubscribeKline 订阅k线频道
 func (p *Public) SubscribeKline(channel string, callback func([]okx.Kline) error) {
-	subscribe[okx.Kline](channel, callback,p)
+	subscribe[okx.Kline](channel, callback, p)
 }
 
-// SubscribeTrade 订阅公共交易数据
-func (p *Public) SubscribeTrade(callback func([]okx.Trade) error) {
-	subscribe[okx.Trade](okx.TradesChannel, callback,p)
+// SubscribeTrade 订阅公共聚合交易数据
+func (p *Public) SubscribeTrade(callback func(trade []okx.AggregatedTrades) error) {
+	//TODO implement me
+	subscribe[okx.AggregatedTrades](okx.TradesChannel, callback, p)
+}
+
+// SubscribeTrade 订阅公共全部交易数据
+func (p *Public) SubscribeTradeAll(callback func(trade []okx.RawTrades) error) {
+	//TODO implement me
+	subscribe[okx.RawTrades](okx.TradesChannel, callback, p)
 }
 
 // SubscribeBook 订阅实时盘口数据
 func (p *Public) SubscribeBook(channel string, callback func([]okx.OrderBook) error) {
-	subscribe[okx.OrderBook](channel, callback,p)
+	subscribe[okx.OrderBook](channel, callback, p)
 }
 
 // SubscribeTicker 订阅Tick数据行情
 func (p *Public) SubscribeTicker(callback func([]okx.Ticker) error) {
-	subscribe[okx.Ticker](okx.TickersChannel, callback,p)
+	subscribe[okx.Ticker](okx.TickersChannel, callback, p)
 }
