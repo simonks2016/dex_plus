@@ -1,6 +1,8 @@
 package param
 
-import "encoding/json"
+import (
+	"github.com/goccy/go-json"
+)
 
 type SubscribeChannelParams struct {
 	Channel     string  `json:"channel"`

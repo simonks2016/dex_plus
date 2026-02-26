@@ -61,4 +61,5 @@ type OKXPublic interface {
 	SubscribeTrade(callback func(trade []okx.AggregatedTrades) error)
 	SubscribeTradeAll(callback func(trade []okx.RawTrades) error)
 	SubscribeBook(channel string, callback func(books []okx.OrderBook) error)
+	ExchangeName() string
 }

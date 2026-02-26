@@ -1,8 +1,9 @@
 package okx
 
 import (
-	"encoding/json"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
 type Payload struct {

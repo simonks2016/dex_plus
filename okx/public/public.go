@@ -121,3 +121,7 @@ func (p *Public) SubscribeBook(channel string, callback func([]okx.OrderBook) er
 func (p *Public) SubscribeTicker(callback func([]okx.Ticker) error) {
 	subscribe[okx.Ticker](okx.TickersChannel, callback, p)
 }
+
+func (p *Public) ExchangeName() string {
+	return "okx"
+}

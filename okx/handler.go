@@ -2,9 +2,11 @@ package okx
 
 import (
 	"bytes"
-	"encoding/json"
+
 	"fmt"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
 type MarketEvent interface {

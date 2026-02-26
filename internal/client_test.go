@@ -2,13 +2,14 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
+
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"testing"
 
+	"github.com/goccy/go-json"
 	"github.com/simonks2016/dex_plus/internal/client"
 )
 

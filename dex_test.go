@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/panjf2000/ants/v2"
+	"github.com/simonks2016/dex_plus/common"
 	"github.com/simonks2016/dex_plus/okx"
-	"github.com/simonks2016/dex_plus/okx/private"
+	"github.com/simonks2016/dex_plus/okx/public"
 )
 
 func NewLogger() *log.Logger {
@@ -32,10 +33,7 @@ func TestNew(t *testing.T) {
 
 	pool, _ := ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 
-	p1 := private.NewPrivate(
-		"",
-		"",
-		"",
+	p1 := public.NewPublic(
 		ctx,
 		pool,
 		okx.WithForbidIpV6(),
@@ -43,12 +41,16 @@ func TestNew(t *testing.T) {
 		okx.WithSandboxEnv(),
 	)
 
+	p1.SetInstId(common.OKXSymbol(common.BTC))
 	p1.Connect()
-	p1.SubscribePositionAndBalance(func(posAndBalas ...okx.PositionAndBalance) error {
 
-		for _, posAndBala := range posAndBalas {
-			fmt.Println(posAndBala)
+	p1.SubscribeTrade(func(trades []okx.AggregatedTrades) error {
+
+		for _, trade := range trades {
+
+			fmt.Println(trade)
 		}
+
 		return nil
 	})
 

@@ -166,9 +166,10 @@ func (c *WsClient) doWrite(mt int, data []byte) {
 func (c *WsClient) readPump(conn *websocket.Conn) {
 	// 确保 readPump 退出时，如果是当前连接则触发重连
 	defer func() {
-		if c.conn.Load() == conn {
-			c.signalReconnect("read_pump_exit")
-		}
+		/*
+			if c.conn.Load() == conn {
+				c.signalReconnect("read_pump_exit")
+			}*/
 	}()
 
 	for {
@@ -183,7 +184,11 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 
 		data, err := io.ReadAll(io.LimitReader(r, c.cfg.maxMessageSize))
 		if err != nil {
-			return
+			if c.logger != nil {
+				c.logger.Printf("[error]failed to read message from websocket: %s", err.Error())
+			}
+			fmt.Println(err.Error())
+			continue
 		}
 
 		select {

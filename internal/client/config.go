@@ -49,13 +49,16 @@ func NewConfig() *Config {
 		PongWait:            45 * time.Second,
 		ReadTimeout:         5 * time.Second,
 		WriteTimeout:        5 * time.Second,
+		SendTimeout:         time.Minute * time.Duration(10),
 		ReconnectBackoffMin: 500 * time.Millisecond,
 		ReconnectBackoffMax: 10 * time.Second,
+		HandshakeTimeout:    time.Minute,
 		maxMessageSize:      4 << 20,
 		ReadBufferSize:      4000,
 		WriteBufferSize:     4000,
 		ReadWorkerNum:       10,
 		IsForbidIPV6:        false,
+		IsNeedAuth:          false,
 		Logger:              log.New(os.Stdout, "", log.LstdFlags),
 	}
 }

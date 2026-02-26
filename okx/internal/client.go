@@ -130,13 +130,23 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 		o.client.Reconnect("the okx command we ar reconnect")
 	case "subscribe":
 		if o.logger != nil {
-			o.logger.Printf("[info]Successfully subscribed to “%s”",
+			o.logger.Printf("[info]Successfully subscribed to “%s” of %s",
 				func() string {
 					if payload.Arg != nil {
 						return payload.Arg.Channel
 					}
 					return ""
-				}())
+				}(),
+				func() string {
+					if payload.Arg != nil {
+						if payload.Arg.InstId == nil {
+							return *payload.Arg.InstId
+						}
+					}
+					return ""
+				}(),
+			)
+
 		}
 
 	}
