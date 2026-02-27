@@ -71,4 +71,8 @@ func (p *Public) SubscribeOrderBook(callbackSnapshot func(payload.OrderBook) err
 	})
 }
 
+// ExchangeName 交易所名字
 func (p *Public) ExchangeName() string { return "coinbase" }
+
+// SetSymbols 设置品种
+func (p *Public) SetSymbols(symbols ...string) { p.client.SetSymbols(symbols...) }

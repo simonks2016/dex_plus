@@ -104,4 +104,10 @@ func WithIs100Ms() SubscribeOption {
 	}
 }
 
+// ExchangeName 返回交易所名字
 func (p *Public) ExchangeName() string { return "binance" }
+
+// SetSymbols 设置品种
+func (p *Public) SetSymbols(symbols ...string) {
+	p.symbols = symbols
+}

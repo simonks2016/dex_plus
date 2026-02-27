@@ -87,3 +87,8 @@ func (p *Public) Close() {
 func (p *Public) ExchangeName() string {
 	return "kraken"
 }
+
+// SetSymbols 设置品种
+func (p *Public) SetSymbols(symbols ...string) {
+	p.symbols = symbols
+}

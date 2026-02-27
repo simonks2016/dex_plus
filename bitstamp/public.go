@@ -54,3 +54,8 @@ func (p *Public) SubscribeOrderBook(callback func(string, payload.OrderBook) err
 		return callback(env.GetSymbol(), data)
 	}, p.symbols...)
 }
+
+// SetSymbols 设置品种
+func (p *Public) SetSymbols(symbols ...string) {
+	p.symbols = symbols
+}
