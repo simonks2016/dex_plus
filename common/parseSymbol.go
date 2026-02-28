@@ -53,7 +53,7 @@ func (s SymbolInfo) Standardize() SymbolInfo {
 		Quote: strings.ToUpper(s.Quote),
 	}
 }
-func (s SymbolInfo) StandardizeString(delimiter string) string {
+func (s SymbolInfo) StandardizeString() string {
 	return s.Base + "-" + s.Quote
 }
 
