@@ -20,8 +20,8 @@ const (
 	USD  = "USD"
 )
 
-func buildSymbol(base string, quote string, relimiter string) string {
-	return base + relimiter + quote
+func buildSymbol(base string, quote string, delimiter string) string {
+	return base + delimiter + quote
 }
 
 func OKXSymbol(currency ...string) string {
