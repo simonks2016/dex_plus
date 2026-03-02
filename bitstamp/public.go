@@ -46,7 +46,7 @@ func (p *Public) SubscribeTrades(callback func(string, payload.Trade) error) {
 
 // SubscribeOrderBook 订阅盘口数据
 func (p *Public) SubscribeOrderBook(callback func(string, payload.OrderBook) error) {
-	p.client.Subscribe("diff_order_book_", func(env *internal.Envelope) error {
+	p.client.Subscribe("diff_order_book", func(env *internal.Envelope) error {
 		data, err := payload.ParseData[payload.OrderBook](env)
 		if err != nil {
 			return err

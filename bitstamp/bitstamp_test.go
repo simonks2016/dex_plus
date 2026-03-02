@@ -2,7 +2,6 @@ package bitstamp
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,11 +28,16 @@ func TestBitstampClient(t *testing.T) {
 
 	p.SubscribeTrades(func(symbol string, data payload.Trade) error {
 
-		fmt.Println(symbol)
-		fmt.Println(data)
-
 		return nil
 	})
+
+	/*
+		p.SubscribeOrderBook(func(s string, book payload.OrderBook) error {
+
+			fmt.Println(s)
+			fmt.Println(book)
+			return nil
+		})*/
 
 	for {
 		select {
