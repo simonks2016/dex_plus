@@ -36,7 +36,7 @@ func NewPublic(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPu
 		opt(cfg)
 	}
 
-	if pool != nil {
+	if pool == nil {
 		pool, _ = ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 	}
 

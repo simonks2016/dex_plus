@@ -124,7 +124,7 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 		}
 	case "error":
 		if o.logger != nil {
-			o.logger.Printf("[error] %s", payload.Code)
+			o.logger.Printf("[error] %s,%s", payload.Code, payload.Msg)
 		}
 	case "notice":
 		o.client.Reconnect("the okx command we ar reconnect")
