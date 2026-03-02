@@ -51,10 +51,26 @@ func NewCoinbaseClient(ctx context.Context, cfg *client.Config) *CoinbaseClient 
 			return err
 		} else {
 			if cli.logger != nil {
-				cli.logger.Printf("[error]received a error message from Coinbase,%s", d["message"])
+				cli.logger.Printf("[error]received a error message from Coinbase,%s,%s", d["message"], string(data))
 			}
 		}
 
+		return nil
+	})
+	// 添加心跳事件
+	cli.channels = append(cli.channels, "heartbeat")
+	cli.handler["heartbeat"] = append(cli.handler["heartbeat"], func(data []byte) error {
+		var d = make(map[string]any)
+
+		if err := json.Unmarshal(data, &d); err != nil {
+			return err
+		} else {
+			if cli.logger != nil {
+				cli.logger.Printf("[info]received a hearbeat message from Coinbase,%s,time: %s",
+					d["product_id"].(string),
+					d["time"].(string))
+			}
+		}
 		return nil
 	})
 
