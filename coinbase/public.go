@@ -43,9 +43,9 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 		bookManager: bookManager.NewBookManager(),
 	}
 }
-
-func (p *Public) Connect() { p.client.Connect() }
-func (p *Public) Close()   { p.client.Close() }
+func (p *Public) SetSymbols(symbols ...string) { p.SetSymbols(symbols...) }
+func (p *Public) Connect()                     { p.client.Connect() }
+func (p *Public) Close()                       { p.client.Close() }
 func (p *Public) SubscribeTrade(callback func(trades payload.MatchedTrade) error) {
 
 	p.client.Subscribe("matches")
