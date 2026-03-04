@@ -1,3 +1,5 @@
 package internal
 
-type Caller func(map[string]any) error
+import "github.com/goccy/go-json"
+
+type Caller func(string,json.RawMessage) error

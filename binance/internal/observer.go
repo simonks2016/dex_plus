@@ -1,11 +1,10 @@
 package internal
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/goccy/go-json"
+	"github.com/simonks2016/dex_plus/binance/payload"
 )
 
 func (b *BinanceClient) OnConnecting(reason string) {
@@ -56,31 +55,34 @@ func (b *BinanceClient) OnDisconnected() {
 func (b *BinanceClient) OnMessage(data []byte) error {
 	//TODO implement me
 
-	var result map[string]interface{}
+	var streams payload.Stream
 
-	if err := json.Unmarshal(data, &result); err != nil {
+	if err := json.Unmarshal(data,&streams);err != nil {
 		return err
-	} else if result == nil {
-		return errors.New("invalid result")
 	}
 
-	if id, ex := result["id"]; ex {
-		if b.logger != nil {
-			b.logger.Printf("[info]Successfully to subscribe channel,result id : %s", id.(string))
+	if streams.Id != nil{
+		if b.logger != nil{
+			b.logger.Printf("[success] Successfuly Subscribe Channel")
 		}
 		return nil
 	}
 
-	if eventType, ex := result["e"]; ex {
-		// 转化成string
-		event := eventType.(string)
-		// 获取处理函数
-		if callers, ex := b.handlerMap[event]; ex {
+	if streams.Stream != nil{
+
+		// 分析Stream
+		s := ParseStreamName(*streams.Stream)
+		// 分析出ChannelName
+		channelName := s[1]
+		symbol := s[0]
+
+		// 查看一下处理函数
+		if callers,ex := b.handlerMap[channelName];ex{
 			for _, callback := range callers {
 				if err := b.pool.Submit(func() {
-					if err := callback(result); err != nil {
+					if err := callback(symbol,streams.Data); err != nil {
 						if b.logger != nil {
-							b.logger.Printf("[error]Failed to read message:%s,%s", err.Error(), event)
+							b.logger.Printf("[error]Failed to read message:%s,%s,%s", err.Error(), channelName,*streams.Stream)
 						}
 						return
 					}
@@ -90,29 +92,6 @@ func (b *BinanceClient) OnMessage(data []byte) error {
 			}
 		}
 	}
-
-	if lastUpdateId, ex := result["lastUpdateId"]; ex {
-		for k, callers := range b.handlerMap {
-
-			if strings.HasPrefix(k, "depth") && k != "depth" {
-
-				for _, callback := range callers {
-					if err := b.pool.Submit(func() {
-						if err := callback(result); err != nil {
-							if b.logger != nil {
-								b.logger.Printf("[error]Failed to read message:%s,%s,%s", err.Error(), k, lastUpdateId)
-							}
-							return
-						}
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-	}
-
 	return nil
 }
 

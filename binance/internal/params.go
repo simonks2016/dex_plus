@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"strings"
+
 	"github.com/goccy/go-json"
 )
 
@@ -49,4 +51,8 @@ func (p *BinanceParams) CopyNew(method string) *BinanceParams {
 		Params: p.Params,
 		Id:     "2",
 	}
+}
+
+func ParseStreamName(streamName string) []string {
+	return strings.Split(streamName, "@")
 }

@@ -329,3 +329,14 @@ func DecodeBinanceMap[T BinancePayloadType](m map[string]any) (T, error) {
 
 	return t, nil
 }
+
+func ParseData[T BinancePayloadType](dataByte json.RawMessage) (T, error) {
+
+	var data T
+
+	err := json.Unmarshal(dataByte, &data)
+	if err != nil {
+		return data, err
+	}
+	return data, nil
+}

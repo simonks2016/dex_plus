@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/simonks2016/dex_plus/common"
 	"github.com/simonks2016/dex_plus/kraken/payload"
@@ -27,8 +28,13 @@ func TestClient(t *testing.T) {
 		return nil
 	})
 
-	p1.SubscribeOrderBook(func(ob []payload.OrderBook) error {
-		fmt.Println(ob)
+	p1.SubscribeOrderBook(time.Second, func(ob []payload.OrderBook) error {
+
+		ob1 := ob[0]
+
+		fmt.Println("ask", ob1.Asks)
+		fmt.Println("bid", ob1.Bids)
+
 		return nil
 	})
 

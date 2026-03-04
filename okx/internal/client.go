@@ -138,10 +138,8 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 					return ""
 				}(),
 				func() string {
-					if payload.Arg != nil {
-						if payload.Arg.InstId == nil {
-							return *payload.Arg.InstId
-						}
+					if payload.Arg != nil && payload.Arg.InstId != nil {
+						return *payload.Arg.InstId
 					}
 					return ""
 				}(),

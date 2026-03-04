@@ -22,18 +22,18 @@ func TestClient(t *testing.T) {
 
 	cli := NewPublic(ctx,
 		common.BinanceSymbol(common.BTC, common.USDT),
-		common.BinanceSymbol(common.ETH, common.USDT),
-		common.BinanceSymbol(common.XRP, common.USDT),
-		common.BinanceSymbol(common.SOL, common.USDT),
 	)
 
 	cli.Connect()
-	cli.SubscribeOrderBookDelta(func(ob payload.OrderBookDelta) error {
-		fmt.Println(ob)
-		return nil
-	})
-	cli.SubscribeAggTrade(func(trade payload.AggTrade) error {
-		fmt.Println(trade)
+
+	/*
+		cli.SubscribeOrderBook(func(symbol string, snapshot payload.OrderBookSnapshot) error {
+			fmt.Println(symbol, snapshot)
+			return nil
+		})*/
+
+	cli.SubscribeAggTrade(func(s string, trade payload.AggTrade) error {
+		fmt.Println(s, trade)
 		return nil
 	})
 

@@ -44,9 +44,21 @@ func (p *Public) SubscribeTrades(callback func(string, payload.Trade) error) {
 	}, p.symbols...)
 }
 
-// SubscribeOrderBook 订阅盘口数据
-func (p *Public) SubscribeOrderBook(callback func(string, payload.OrderBook) error) {
+// SubscribeOrderBookDelta 订阅盘口增量数据
+func (p *Public) SubscribeOrderBookDelta(callback func(string, payload.OrderBook) error) {
 	p.client.Subscribe("diff_order_book", func(env *internal.Envelope) error {
+		data, err := payload.ParseData[payload.OrderBook](env)
+		if err != nil {
+			return err
+		}
+		return callback(env.GetSymbol(), data)
+	}, p.symbols...)
+}
+
+// SubscribeOrderBook 订阅盘口快照数据
+func (p *Public) SubscribeOrderBook(callback func(string, payload.OrderBook) error) {
+
+	p.client.Subscribe("order_book", func(env *internal.Envelope) error {
 		data, err := payload.ParseData[payload.OrderBook](env)
 		if err != nil {
 			return err

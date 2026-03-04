@@ -1,27 +1,29 @@
 package payload
 
+import "github.com/goccy/go-json"
+
 type AggTrade struct {
-	EventType    string `json:"event_type" binance:"e"`
-	EventTime    int64  `json:"event_time" binance:"E"`
-	Symbol       string `json:"symbol" binance:"s"`
-	TradeId      int    `json:"trade_id" binance:"a"`
-	Price        string `json:"price" binance:"p"`
-	Quantity     string `json:"quantity" binance:"q"`
-	FirstTradeId int    `json:"first_trade_id" binance:"f"`
-	LastTradeId  int    `json:"last_trade_id" binance:"l"`
-	TradeTime    int64  `json:"trade_time" binance:"T"`
-	IsMarket     bool   `json:"is_market" binance:"m"`
+	EventType    string `json:"e" binance:"e"`
+	EventTime    int64  `json:"E" binance:"E"`
+	Symbol       string `json:"s" binance:"s"`
+	TradeId      int    `json:"a" binance:"a"`
+	Price        string `json:"p" binance:"p"`
+	Quantity     string `json:"q" binance:"q"`
+	FirstTradeId int    `json:"f" binance:"f"`
+	LastTradeId  int    `json:"l" binance:"l"`
+	TradeTime    int64  `json:"T" binance:"T"`
+	IsMarket     bool   `json:"m" binance:"m"`
 }
 
 type Trade struct {
-	EventType string `json:"event_type" binance:"e"`
-	EventTime int64  `json:"event_time" binance:"E"`
-	Symbol    string `json:"symbol" binance:"s"`
-	TradeId   int    `json:"trade_id" binance:"t"`
-	Price     string `json:"price" binance:"p"`
-	Quantity  string `json:"quantity" binance:"q"`
-	TradeTime int64  `json:"trade_time" binance:"T"`
-	IsMarket  bool   `json:"is_market" binance:"m"`
+	EventType string `json:"e" binance:"e"`
+	EventTime int64  `json:"E" binance:"E"`
+	Symbol    string `json:"s" binance:"s"`
+	TradeId   int    `json:"t" binance:"t"`
+	Price     string `json:"p" binance:"p"`
+	Quantity  string `json:"q" binance:"q"`
+	TradeTime int64  `json:"T" binance:"T"`
+	IsMarket  bool   `json:"m" binance:"m"`
 }
 
 type OrderBookSnapshot struct {
@@ -31,11 +33,18 @@ type OrderBookSnapshot struct {
 }
 
 type OrderBookDelta struct {
-	EventType    string     `json:"event_type" binance:"e"`
-	EventTime    int64      `json:"event_time" binance:"E"`
-	Symbol       string     `json:"symbol" binance:"s"`
-	UpdateId     int        `json:"update_id" binance:"U"`
-	LastUpdateId int        `json:"last_update_id" binance:"u"`
-	Bids         [][]string `json:"bids" binance:"b"`
-	Asks         [][]string `json:"asks" binance:"a"`
+	EventType    string     `json:"e" binance:"e"`
+	EventTime    int64      `json:"E" binance:"E"`
+	Symbol       string     `json:"s" binance:"s"`
+	UpdateId     int        `json:"U" binance:"U"`
+	LastUpdateId int        `json:"u" binance:"u"`
+	Bids         [][]string `json:"b" binance:"b"`
+	Asks         [][]string `json:"a" binance:"a"`
+}
+
+type Stream struct {
+	Stream *string         `json:"stream"`
+	Data   json.RawMessage `json:"data"`
+	Id     *string         `json:"id"`
+	Result json.RawMessage `json:"result"`
 }

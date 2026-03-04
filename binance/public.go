@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/simonks2016/dex_plus/binance/internal"
 	"github.com/simonks2016/dex_plus/binance/payload"
 	"github.com/simonks2016/dex_plus/internal/client"
@@ -36,17 +37,17 @@ func NewPublic(ctx context.Context, symbol ...string) *Public {
 	}
 }
 
-func subscribeChannel[T payload.BinancePayloadType](p *Public, channel string, callback func(T) error, opts ...SubscribeOption) {
+func subscribeChannel[T payload.BinancePayloadType](p *Public, channel string, callback func(string, T) error, opts ...SubscribeOption) {
 
-	caller := func(data map[string]any) error {
+	caller := func(symbol string, data json.RawMessage) error {
 
-		if d, err := payload.DecodeBinanceMap[T](data); err != nil {
+		if d, err := payload.ParseData[T](data); err != nil {
 			if p.logger != nil {
 				p.logger.Printf("[error] failed to decode agg trade data: %v", err.Error())
 			}
 			return err
 		} else {
-			return callback(d)
+			return callback(symbol, d)
 		}
 	}
 
@@ -65,7 +66,7 @@ func subscribeChannel[T payload.BinancePayloadType](p *Public, channel string, c
 }
 
 // SubscribeAggTrade 订阅归集交易
-func (p *Public) SubscribeAggTrade(callback func(payload.AggTrade) error) {
+func (p *Public) SubscribeAggTrade(callback func(string, payload.AggTrade) error) {
 	subscribeChannel[payload.AggTrade](p, "aggTrade", callback,
 		WithReturnChannelName("aggTrade"),
 		WithIs100Ms(),
@@ -73,12 +74,22 @@ func (p *Public) SubscribeAggTrade(callback func(payload.AggTrade) error) {
 }
 
 // SubscribeOrderBookDelta 订阅增量盘口深度数据
-func (p *Public) SubscribeOrderBookDelta(callback func(payload.OrderBookDelta) error) {
+func (p *Public) SubscribeOrderBookDelta(callback func(string, payload.OrderBookDelta) error) {
 	//
 	subscribeChannel[payload.OrderBookDelta](p, "depth", callback,
 		WithReturnChannelName("depthUpdate"),
 		WithIs100Ms(),
 	)
+}
+
+// SubscribeOrderBook 订阅盘口快照数据
+func (p *Public) SubscribeOrderBook(callback func(string, payload.OrderBookSnapshot) error) {
+
+	subscribeChannel[payload.OrderBookSnapshot](p, "depth20", callback,
+		WithReturnChannelName("depth20"),
+		WithIs100Ms(),
+	)
+
 }
 
 func (p *Public) Connect() {
