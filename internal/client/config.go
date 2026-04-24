@@ -33,6 +33,7 @@ type Config struct {
 	ReconnectBackoffMin time.Duration
 	ReconnectBackoffMax time.Duration
 	SendTimeout         time.Duration
+	Proxy               *Proxy
 
 	maxMessageSize int64
 
@@ -41,6 +42,12 @@ type Config struct {
 	ReadWorkerNum   int
 	IsForbidIPV6    bool
 	IsNeedAuth      bool
+}
+
+type Proxy struct {
+	Address  string
+	Account  string
+	Password string
 }
 
 func NewConfig() *Config {

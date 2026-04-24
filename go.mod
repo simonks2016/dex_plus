@@ -1,8 +1,6 @@
 module github.com/simonks2016/dex_plus
 
-go 1.24.0
-
-toolchain go1.24.11
+go 1.25.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
@@ -12,5 +10,6 @@ require (
 require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 )

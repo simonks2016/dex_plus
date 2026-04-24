@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/panjf2000/ants/v2"
-	"github.com/simonks2016/dex_plus/common"
 	"github.com/simonks2016/dex_plus/okx"
-	"github.com/simonks2016/dex_plus/okx/public"
+	"github.com/simonks2016/dex_plus/okx/param"
+	"github.com/simonks2016/dex_plus/okx/private"
 )
 
 func NewLogger() *log.Logger {
@@ -33,26 +34,40 @@ func TestNew(t *testing.T) {
 
 	pool, _ := ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 
-	p1 := public.NewPublic(
+	p1 := private.NewPrivate(
+		"", "", "",
 		ctx,
 		pool,
 		okx.WithForbidIpV6(),
 		okx.WithLogger(NewLogger()),
-		okx.WithSandboxEnv(),
-	)
+		okx.WithSandboxEnv())
 
-	p1.SetInstId(common.OKXSymbol(common.BTC))
 	p1.Connect()
 
-	p1.SubscribeTrade(func(trades []okx.AggregatedTrades) error {
-
-		for _, trade := range trades {
-
-			fmt.Println(trade)
-		}
+	p1.SubscribePositionAndBalance(func(posAndBala ...okx.PositionAndBalance) error {
 
 		return nil
+
 	})
+
+	time.Sleep(2 * time.Second)
+
+	err := p1.PlaceOrder(param.PlaceOrderParams{
+		InstIdCode: NewInt(2021032601102993),
+		TdMode:     "cross",
+		Ccy:        NewString("USDT"),
+		ClOrdId:    NewString("Ks3987haa"),
+		Tag:        nil,
+		Side:       "sell",
+		PosSide:    NewString("short"),
+		OrdType:    "limit",
+		SZ:         "0.02",
+		Px:         NewString("72165"),
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
 	select {
 	case <-ctx.Done():
@@ -62,6 +77,14 @@ func TestNew(t *testing.T) {
 		p1.Close()
 	}
 
+}
+
+func NewInt(i int) *int {
+	return &i
+}
+
+func NewString(s string) *string {
+	return &s
 }
 
 // 存在问题：

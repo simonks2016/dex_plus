@@ -85,6 +85,7 @@ func TestClient(t *testing.T) {
 		ctx,
 		cfg,
 	)
+
 	var ob1 = Ob{client: cli}
 
 	cli.SetObserver(&ob1)

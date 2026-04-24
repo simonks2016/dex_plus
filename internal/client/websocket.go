@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/proxy"
 )
 
 type WsClient struct {
@@ -36,32 +38,96 @@ type WsClient struct {
 func NewWsClient(ctx context.Context, cfg *Config) *WsClient {
 	ctx, cancel := context.WithCancel(ctx)
 
-	d := cfg.Dialer
-	if d == nil {
-		d = &websocket.Dialer{
+	var d websocket.Dialer
+	if cfg.Dialer != nil {
+		d = *cfg.Dialer // 拷贝，避免污染外部对象
+	} else {
+		d = websocket.Dialer{
 			Proxy:            http.ProxyFromEnvironment,
 			HandshakeTimeout: 10 * time.Second,
 		}
 	}
 
+	network := "tcp"
 	if cfg.IsForbidIPV6 {
-		d.NetDialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-			nd := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
-			return nd.DialContext(ctx, "tcp4", address)
+		network = "tcp4"
+	}
+
+	baseDialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	// 默认拨号逻辑
+	d.NetDialContext = func(ctx context.Context, _, addr string) (net.Conn, error) {
+		return baseDialer.DialContext(ctx, network, addr)
+	}
+
+	// 如果启用 SOCKS5，则覆盖底层拨号
+	if cfg.Proxy != nil {
+		s5Dialer, err := proxy.SOCKS5(
+			network,
+			cfg.Proxy.Address,
+			&proxy.Auth{
+				User:     cfg.Proxy.Account,
+				Password: cfg.Proxy.Password,
+			},
+			&directDialer{baseDialer, network},
+		)
+		if err != nil {
+			cancel()
+			panic(err)
+		}
+
+		// 显式关闭 HTTP 代理，避免和 SOCKS5 语义混淆
+		d.Proxy = nil
+
+		d.NetDialContext = func(ctx context.Context, _, addr string) (net.Conn, error) {
+			type result struct {
+				conn net.Conn
+				err  error
+			}
+			ch := make(chan result, 1)
+
+			go func() {
+				c, err := s5Dialer.Dial(network, addr)
+				ch <- result{conn: c, err: err}
+			}()
+
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case r := <-ch:
+				return r.conn, r.err
+			}
 		}
 	}
 
-	w := &WsClient{
-		logger:     cfg.Logger,
-		cfg:        cfg,
-		ctx:        ctx,
-		dialer:     d,
-		cancelFunc: cancel,
-
-		reconnectCh: make(chan string, 1),
-		writeCh:     make(chan []byte, cfg.WriteBufferSize),
-		readCh:      make(chan []byte, cfg.ReadBufferSize),
+	writeBuf := cfg.WriteBufferSize
+	if writeBuf <= 0 {
+		writeBuf = 1024
 	}
+
+	readBuf := cfg.ReadBufferSize
+	if readBuf <= 0 {
+		readBuf = 1024
+	}
+
+	if cfg.Logger == nil {
+		cfg.Logger = log.Default()
+	}
+
+	w := &WsClient{
+		logger:      cfg.Logger,
+		cfg:         cfg,
+		ctx:         ctx,
+		dialer:      &d,
+		cancelFunc:  cancel,
+		reconnectCh: make(chan string, 1),
+		writeCh:     make(chan []byte, writeBuf),
+		readCh:      make(chan []byte, readBuf),
+	}
+
 	return w
 }
 
@@ -104,6 +170,14 @@ func (c *WsClient) handleConnect(reason string) {
 
 	// 2. 指数退避重连
 	backoff := c.cfg.ReconnectBackoffMin
+	if backoff <= 0 {
+		backoff = time.Second
+	}
+	maxBackoff := c.cfg.ReconnectBackoffMax
+	if maxBackoff <= 0 {
+		maxBackoff = 30 * time.Second
+	}
+
 	for {
 		conn, _, err := c.dialer.DialContext(c.ctx, c.cfg.URL, c.cfg.Header)
 		if err == nil {
@@ -128,6 +202,11 @@ func (c *WsClient) handleConnect(reason string) {
 }
 
 func (c *WsClient) writePump() {
+
+	pingInterval := c.cfg.PingInterval
+	if pingInterval <= 0 {
+		pingInterval = 15 * time.Second
+	}
 	ticker := time.NewTicker(c.cfg.PingInterval)
 	defer ticker.Stop()
 
@@ -166,10 +245,9 @@ func (c *WsClient) doWrite(mt int, data []byte) {
 func (c *WsClient) readPump(conn *websocket.Conn) {
 	// 确保 readPump 退出时，如果是当前连接则触发重连
 	defer func() {
-		/*
-			if c.conn.Load() == conn {
-				c.signalReconnect("read_pump_exit")
-			}*/
+		if c.conn.Load() == conn && !c.closed.Load() {
+			c.signalReconnect("read_pump_exit")
+		}
 	}()
 
 	for {
@@ -177,6 +255,8 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 		if err != nil {
 			return
 		}
+
+		_ = conn.SetReadDeadline(time.Now().Add(c.cfg.PongWait))
 
 		if msgType != websocket.TextMessage && msgType != websocket.BinaryMessage {
 			continue
@@ -306,4 +386,23 @@ func (cli *WsClient) SetObserver(ob ConnectionObserver) Client {
 // Reconnect 重启
 func (cli *WsClient) Reconnect(reason string) {
 	cli.signalReconnect(reason)
+}
+
+// DirectDialer 代理器
+type directDialer struct {
+	base          *net.Dialer
+	forcedNetwork string
+}
+
+func (d *directDialer) Dial(_ string, address string) (net.Conn, error) {
+	if d == nil || d.base == nil {
+		return nil, errors.New("nil directDialer")
+	}
+
+	network := d.forcedNetwork
+	if network == "" {
+		network = "tcp"
+	}
+
+	return d.base.Dial(network, address)
 }
