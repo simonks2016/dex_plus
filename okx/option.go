@@ -64,3 +64,10 @@ func WithSandboxEnv() client.Option {
 		return
 	}
 }
+
+func WithURL(url string) client.Option {
+
+	return func(cfg *client.Config) {
+		cfg.URL = url
+	}
+}
