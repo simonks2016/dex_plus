@@ -141,7 +141,10 @@ func (o *OKXClient) onEvent(event string, payload *okx.Payload) error {
 					if payload.Arg != nil && payload.Arg.InstId != nil {
 						return *payload.Arg.InstId
 					}
-					return ""
+					if payload.Arg != nil && payload.Arg.InstFamily != nil {
+						return *payload.Arg.InstFamily
+					}
+					return "okx"
 				}(),
 			)
 
