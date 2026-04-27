@@ -34,7 +34,7 @@ func NewPrivate(apiKey, secretKey, passphrase string, bg context.Context, pool *
 	}
 	cfg.IsNeedAuth = true
 
-	if pool != nil {
+	if pool == nil {
 		pool, _ = ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 	}
 	// 创建新的
