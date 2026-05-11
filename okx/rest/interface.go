@@ -14,4 +14,5 @@ type OKXRestAPI interface {
 
 	PlaceOrder(...param.PlaceOrderParams) error
 	CancelOrder(...param.CancelOrder) error
+	Close()
 }
