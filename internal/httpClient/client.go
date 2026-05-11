@@ -3,11 +3,13 @@ package httpClient
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -250,6 +252,11 @@ func (c *Client) do(req Request, retryCount int) (*Response, error) {
 
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
+		// EOF / unexpected EOF
+		if isRetryableNetErr(err) {
+			c.resetConnection()
+		}
+		// 返回错误
 		return &Response{
 			RequestID:  req.RequestId,
 			Latency:    time.Since(start),
@@ -317,4 +324,41 @@ func methodToString(method Method) string {
 	default:
 		return http.MethodGet
 	}
+}
+
+func (c *Client) resetConnection() {
+	if transport, ok := c.httpClient.Transport.(*http.Transport); ok {
+		transport.CloseIdleConnections()
+	}
+}
+func isRetryableNetErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// EOF
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+
+	errMsg := strings.ToLower(err.Error())
+
+	if strings.Contains(errMsg, "eof") ||
+		strings.Contains(errMsg, "timeout") ||
+		strings.Contains(errMsg, "broken pipe") ||
+		strings.Contains(errMsg, "connection reset by peer") ||
+		strings.Contains(errMsg, "connection refused") ||
+		strings.Contains(errMsg, "temporary failure") {
+		return true
+	}
+
+	// net.Error timeout
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return true
+		}
+	}
+
+	return false
 }

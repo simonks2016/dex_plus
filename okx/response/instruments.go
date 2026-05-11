@@ -1,4 +1,4 @@
-package Response
+package response
 
 type Instruments struct {
 	Alias             string   `json:"alias"`

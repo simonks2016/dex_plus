@@ -1,4 +1,4 @@
-package Response
+package response
 
 type BasicResponse[T any] struct {
 	Code string `json:"code"`

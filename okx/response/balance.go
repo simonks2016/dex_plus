@@ -1,4 +1,4 @@
-package Response
+package response
 
 type AccountBalance struct {
 	UTime                 string                 `json:"uTime"`

@@ -1,12 +1,14 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/simonks2016/dex_plus/internal/httpClient"
-	"github.com/simonks2016/dex_plus/okx/Response"
 	"github.com/simonks2016/dex_plus/okx/internal"
+	"github.com/simonks2016/dex_plus/okx/param"
+	"github.com/simonks2016/dex_plus/okx/response"
 )
 
 type Client struct {
@@ -16,11 +18,61 @@ type Client struct {
 	isSandBox bool
 }
 
+func (c *Client) PlaceOrder(params ...param.PlaceOrderParams) error {
+	if len(params) == 0 {
+		return errors.New("params is empty")
+	}
+	if len(params) > 20 {
+		return errors.New("a maximum of 20 orders can be canceled at once")
+	}
+	// 生成path
+	path := buildPath("/api/v5/trade/batch-orders")
+	// POST请求
+	if results, err := doPOST[[]response.ResultAsPlaceOrder](c.BaseUrl, path, c, params); err != nil {
+		for _, r := range results {
+			if r.SCode != "0" {
+				return fmt.Errorf("%v, error_msg = %s", err, r.SMsg)
+			}
+		}
+		return err
+	} else {
+		for _, r := range results {
+			if r.SCode != "0" {
+				return errors.New(r.SMsg)
+			}
+		}
+		return nil
+	}
+}
+
+func (c *Client) CancelOrder(params ...param.CancelOrder) error {
+	if len(params) == 0 {
+		return errors.New("params is empty")
+	}
+	if len(params) > 20 {
+		return errors.New("a maximum of 20 orders can be canceled at once")
+	}
+	// 生成Path
+	path := buildPath("/api/v5/trade/cancel-batch-orders")
+
+	// 发送POST请求
+	if results, err := doPOST[[]response.ResultAsCancelOrder](c.BaseUrl, path, c, params); err != nil {
+		return err
+	} else {
+		for _, r := range results {
+			if r.SCode != "0" {
+				return errors.New(r.SMsg)
+			}
+		}
+		return nil
+	}
+}
+
 // GetInstruments 获取交易产品基础信息
 func (c *Client) GetInstruments(
 	instType string,
 	queryParams ...QueryParam,
-) ([]Response.Instruments, error) {
+) ([]response.Instruments, error) {
 	if c == nil || c.client == nil {
 		return nil, fmt.Errorf("client is nil")
 	}
@@ -35,13 +87,13 @@ func (c *Client) GetInstruments(
 	// 生成请求路径
 	path := buildPath("/api/v5/public/instruments", params...)
 	// Get 请求
-	return doGET[[]Response.Instruments](c.BaseUrl, path, c)
+	return doGET[[]response.Instruments](c.BaseUrl, path, c)
 }
 
 // GetPendingOrders 获取未成交订单
 func (c *Client) GetPendingOrders(
 	queryParams ...QueryParam,
-) ([]Response.PendingOrder, error) {
+) ([]response.PendingOrder, error) {
 
 	if c == nil || c.client == nil {
 		return nil, fmt.Errorf("client is nil")
@@ -49,30 +101,30 @@ func (c *Client) GetPendingOrders(
 
 	path := buildPath("/api/v5/trade/orders-pending", queryParams...)
 
-	return doGET[[]Response.PendingOrder](c.BaseUrl, path, c)
+	return doGET[[]response.PendingOrder](c.BaseUrl, path, c)
 }
 
 // GetPositions 获取仓位信息
-func (c *Client) GetPositions(queryParams ...QueryParam) ([]Response.Position, error) {
+func (c *Client) GetPositions(queryParams ...QueryParam) ([]response.Position, error) {
 	// 生成请求路径
 	path := buildPath("/api/v5/account/positions", queryParams...)
 	// GET请求
-	return doGET[[]Response.Position](c.BaseUrl, path, c)
+	return doGET[[]response.Position](c.BaseUrl, path, c)
 }
 
 // GetBalance 获取账户余额
-func (c *Client) GetBalance(queryParams ...QueryParam) ([]Response.AccountBalance, error) {
+func (c *Client) GetBalance(queryParams ...QueryParam) ([]response.AccountBalance, error) {
 	// 生成参数
 	path := buildPath("/api/v5/account/balance", queryParams...)
 	// GET请求
-	return doGET[[]Response.AccountBalance](c.BaseUrl, path, c)
+	return doGET[[]response.AccountBalance](c.BaseUrl, path, c)
 }
 
 // GetOrderStatus 获取订单信息
 func (c *Client) GetOrderStatus(
 	instId string,
 	queryParams ...QueryParam,
-) ([]Response.OrderStatus, error) {
+) ([]response.OrderStatus, error) {
 
 	if instId == "" {
 		return nil, fmt.Errorf("instId is required")
@@ -85,17 +137,7 @@ func (c *Client) GetOrderStatus(
 	// 生成path
 	path := buildPath("/api/v5/trade/order", params...)
 	// GET请求
-	return doGET[[]Response.OrderStatus](c.BaseUrl, path, c)
-}
-
-func (c *Client) PlaceOrder() error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *Client) CancelOrder() error {
-	//TODO implement me
-	panic("implement me")
+	return doGET[[]response.OrderStatus](c.BaseUrl, path, c)
 }
 
 func NewOKXRestClient(opts ...Option) OKXRestAPI {
@@ -119,7 +161,7 @@ func NewOKXRestClient(opts ...Option) OKXRestAPI {
 	return cli
 }
 
-func (r *Client) Close() {
+func (c *Client) Close() {
 	//
-	r.client.Close()
+	c.client.Close()
 }

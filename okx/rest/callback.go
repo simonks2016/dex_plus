@@ -5,7 +5,7 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/simonks2016/dex_plus/internal/httpClient"
-	"github.com/simonks2016/dex_plus/okx/Response"
+	"github.com/simonks2016/dex_plus/okx/response"
 )
 
 type asyncResult[T any] struct {
@@ -35,7 +35,7 @@ func OKXCallback[T any](resultCh chan<- asyncResult[T]) httpClient.Callback {
 			return
 		}
 
-		var out Response.BasicResponse[T]
+		var out response.BasicResponse[T]
 		if err := json.Unmarshal(resp.Body, &out); err != nil {
 			resultCh <- asyncResult[T]{zero, err}
 			return
@@ -43,8 +43,13 @@ func OKXCallback[T any](resultCh chan<- asyncResult[T]) httpClient.Callback {
 
 		if out.Code != "0" {
 			resultCh <- asyncResult[T]{
-				zero,
-				fmt.Errorf("okx code=%s, msg=%s", out.Code, out.Msg),
+				out.Data,
+				fmt.Errorf("okx code=%s%s", out.Code, func() string {
+					if len(out.Msg) >= 0 {
+						return ""
+					}
+					return fmt.Sprintf(" , msg=%s", out.Msg)
+				}()),
 			}
 			return
 		}

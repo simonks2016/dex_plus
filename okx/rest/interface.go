@@ -1,17 +1,17 @@
 package rest
 
 import (
-	"github.com/simonks2016/dex_plus/okx/Response"
 	"github.com/simonks2016/dex_plus/okx/param"
+	"github.com/simonks2016/dex_plus/okx/response"
 )
 
 type OKXRestAPI interface {
-	GetInstruments(instType string, queryParams ...QueryParam) ([]Response.Instruments, error)
-	GetPendingOrders(queryParams ...QueryParam) ([]Response.PendingOrder, error)
-	GetPositions(...QueryParam) ([]Response.Position, error)
-	GetBalance(...QueryParam) ([]Response.AccountBalance, error)
-	GetOrderStatus(instId string, queryParams ...QueryParam) ([]Response.OrderStatus, error)
+	GetInstruments(instType string, queryParams ...QueryParam) ([]response.Instruments, error)
+	GetPendingOrders(queryParams ...QueryParam) ([]response.PendingOrder, error)
+	GetPositions(...QueryParam) ([]response.Position, error)
+	GetBalance(...QueryParam) ([]response.AccountBalance, error)
+	GetOrderStatus(instId string, queryParams ...QueryParam) ([]response.OrderStatus, error)
 
-	PlaceOrder(param.PlaceOrderParams) error
-	CancelOrder(param.CancelOrder) error
+	PlaceOrder(...param.PlaceOrderParams) error
+	CancelOrder(...param.CancelOrder) error
 }

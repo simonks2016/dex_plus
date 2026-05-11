@@ -1,4 +1,4 @@
-package Response
+package response
 
 type PendingOrder = Order
 type OrderStatus = Order
@@ -82,4 +82,22 @@ type AttachAlgoOrd struct {
 
 type LinkedAlgoOrd struct {
 	AlgoId string `json:"algoId"`
+}
+
+type ResultAsPlaceOrder struct {
+	ClOrdId string `json:"clOrdId"`
+	OrdId   string `json:"ordId"`
+	Tag     string `json:"tag"`
+	Ts      string `json:"ts"`
+	SCode   string `json:"sCode"`
+	SMsg    string `json:"sMsg"`
+	SubCode string `json:"subCode"`
+}
+
+type ResultAsCancelOrder struct {
+	ClOrdId string `json:"clOrdId"`
+	OrdId   string `json:"ordId"`
+	Ts      string `json:"ts"`
+	SCode   string `json:"sCode"`
+	SMsg    string `json:"sMsg"`
 }

@@ -1,19 +1,14 @@
 package DexPlus
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 	"time"
 
-	"github.com/panjf2000/ants/v2"
-	"github.com/simonks2016/dex_plus/okx"
 	"github.com/simonks2016/dex_plus/okx/param"
-	"github.com/simonks2016/dex_plus/okx/private"
+	"github.com/simonks2016/dex_plus/okx/rest"
 )
 
 func NewLogger() *log.Logger {
@@ -26,55 +21,37 @@ func NewLogger() *log.Logger {
 
 func TestNew(t *testing.T) {
 
-	ctx, stop := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
-	// 释放资源
-	defer stop()
+	cli := rest.NewOKXRestClient(
+		rest.WithAuth(
+			"",
+			"",
+			""),
+		rest.WithSandbox())
 
-	pool, _ := ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
-
-	p1 := private.NewPrivate(
-		"", "", "",
-		ctx,
-		pool,
-		okx.WithForbidIpV6(),
-		okx.WithLogger(NewLogger()),
-		okx.WithSandboxEnv())
-
-	p1.Connect()
-
-	p1.SubscribePositionAndBalance(func(posAndBala ...okx.PositionAndBalance) error {
-
-		return nil
-
-	})
-
-	time.Sleep(2 * time.Second)
-
-	err := p1.PlaceOrder(param.PlaceOrderParams{
-		InstIdCode: NewInt(2021032601102993),
-		TdMode:     "cross",
-		Ccy:        NewString("USDT"),
-		ClOrdId:    NewString("Ks3987haa"),
-		Tag:        nil,
-		Side:       "sell",
-		PosSide:    NewString("short"),
+	err := cli.PlaceOrder(param.PlaceOrderParams{
+		InstIdCode: NewInt(3),
+		TdMode:     "cash",
+		ClOrdId:    NewString("a"),
+		Side:       "buy",
 		OrdType:    "limit",
-		SZ:         "0.02",
-		Px:         NewString("72165"),
+		SZ:         "0.002",
+		Px:         NewString("70000"),
 	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	time.Sleep(5 * time.Minute)
+
+	err = cli.CancelOrder(
+		param.CancelOrder{
+			InstId:  NewString("BTC-USDT"),
+			ClOrdId: NewString("a"),
+		},
+	)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
-	}
-
-	select {
-	case <-ctx.Done():
-
-		//
-		pool.Free()
-		p1.Close()
 	}
 
 }

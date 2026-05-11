@@ -1,4 +1,4 @@
-package Response
+package response
 
 type Position struct {
 	InstType               string           `json:"instType"`
