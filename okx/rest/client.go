@@ -19,6 +19,11 @@ type Client struct {
 }
 
 func (c *Client) PlaceOrder(params ...param.PlaceOrderParams) error {
+
+	if !c.isSandBox {
+		fmt.Println("⚠️ LIVE TRADING ENABLED - Real orders will be executed")
+	}
+
 	if len(params) == 0 {
 		return errors.New("params is empty")
 	}

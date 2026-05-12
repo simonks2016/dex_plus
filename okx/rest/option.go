@@ -28,6 +28,12 @@ func WithSandbox() Option {
 	}
 }
 
+func WithRealTrading() Option {
+	return func(c *Client) {
+		c.isSandBox = false
+	}
+}
+
 type QueryParam func(map[string]string)
 
 func WithQueryParam(name string, value string) QueryParam {
