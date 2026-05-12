@@ -226,68 +226,110 @@ func (c *Client) do(req Request, retryCount int) (*Response, error) {
 		}, err
 	}
 
-	var body io.Reader
-	if len(req.Body) > 0 {
-		body = bytes.NewReader(req.Body)
-	}
+	var lastErr error
+	maxRetry := retryCount
 
-	httpReq, err := http.NewRequestWithContext(
-		ctx,
-		methodToString(req.Method),
-		requestURL,
-		body,
-	)
-	if err != nil {
-		return &Response{
-			RequestID:  req.RequestId,
-			Latency:    time.Since(start),
-			RetryCount: retryCount,
-			Err:        err,
-		}, err
-	}
-
-	for k, v := range req.Header {
-		httpReq.Header.Set(k, v)
-	}
-
-	httpResp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		// EOF / unexpected EOF
-		if isRetryableNetErr(err) {
-			c.resetConnection()
+	for i := 0; i <= maxRetry; i++ {
+		var body io.Reader
+		if len(req.Body) > 0 {
+			body = bytes.NewReader(req.Body)
 		}
-		// 返回错误
-		return &Response{
-			RequestID:  req.RequestId,
-			Latency:    time.Since(start),
-			RetryCount: retryCount,
-			Err:        err,
-		}, err
-	}
-	defer httpResp.Body.Close()
 
-	respBody, err := io.ReadAll(httpResp.Body)
-	if err != nil {
+		httpReq, err := http.NewRequestWithContext(
+			ctx,
+			methodToString(req.Method),
+			requestURL,
+			body,
+		)
+		if err != nil {
+			return &Response{
+				RequestID:  req.RequestId,
+				Latency:    time.Since(start),
+				RetryCount: i,
+				Err:        err,
+			}, err
+		}
+
+		for k, v := range req.Header {
+			httpReq.Header.Set(k, v)
+		}
+
+		httpResp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = err
+
+			if isRetryableNetErr(err) && i < maxRetry {
+				c.resetConnection()
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+
+			return &Response{
+				RequestID:  req.RequestId,
+				Latency:    time.Since(start),
+				RetryCount: i,
+				Err:        err,
+			}, err
+		}
+
+		respBody, readErr := io.ReadAll(httpResp.Body)
+		closeErr := httpResp.Body.Close()
+
+		if readErr != nil {
+			lastErr = readErr
+
+			if isRetryableNetErr(readErr) && i < maxRetry {
+				c.resetConnection()
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+
+			return &Response{
+				RequestID:  req.RequestId,
+				StatusCode: httpResp.StatusCode,
+				Header:     httpResp.Header,
+				Latency:    time.Since(start),
+				RetryCount: i,
+				Err:        readErr,
+			}, readErr
+		}
+
+		if closeErr != nil {
+			lastErr = closeErr
+
+			if isRetryableNetErr(closeErr) && i < maxRetry {
+				c.resetConnection()
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+
+			return &Response{
+				RequestID:  req.RequestId,
+				StatusCode: httpResp.StatusCode,
+				Header:     httpResp.Header,
+				Body:       respBody,
+				Latency:    time.Since(start),
+				RetryCount: i,
+				Err:        closeErr,
+			}, closeErr
+		}
+
 		return &Response{
 			RequestID:  req.RequestId,
 			StatusCode: httpResp.StatusCode,
 			Header:     httpResp.Header,
+			Body:       respBody,
 			Latency:    time.Since(start),
-			RetryCount: retryCount,
-			Err:        err,
-		}, err
+			RetryCount: i,
+		}, nil
 	}
 
-	resp := &Response{
+	return &Response{
 		RequestID:  req.RequestId,
-		StatusCode: httpResp.StatusCode,
-		Header:     httpResp.Header,
-		Body:       respBody,
 		Latency:    time.Since(start),
-		RetryCount: retryCount,
-	}
-
-	return resp, nil
+		RetryCount: maxRetry,
+		Err:        lastErr,
+	}, lastErr
 }
 
 func buildURL(rawURL string, query map[string]string) (string, error) {
