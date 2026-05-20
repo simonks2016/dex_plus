@@ -1,7 +1,8 @@
 package internal
 
 import (
-	"fmt"
+	"strings"
+	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/simonks2016/dex_plus/binance/payload"
@@ -19,7 +20,6 @@ func (b *BinanceClient) OnConnected() {
 	b.isConnected.Store(true)
 
 	if !b.IsRequireAuth {
-
 		// 设置已验证
 		b.authDone.Store(true)
 
@@ -32,7 +32,6 @@ func (b *BinanceClient) OnConnected() {
 		}
 		// 定时处理死信队列
 		go b.clearDeadMessage()
-
 	}
 
 }
@@ -49,7 +48,10 @@ func (b *BinanceClient) OnDisconnecting() {
 
 func (b *BinanceClient) OnDisconnected() {
 	//TODO implement me
-	fmt.Println("Binance client OnDisconnected")
+	b.isConnected.Store(false)
+	if b.logger != nil {
+		b.logger.Printf("Binance client OnDisconnected")
+	}
 }
 
 func (b *BinanceClient) OnMessage(data []byte) error {
@@ -57,32 +59,45 @@ func (b *BinanceClient) OnMessage(data []byte) error {
 
 	var streams payload.Stream
 
-	if err := json.Unmarshal(data,&streams);err != nil {
+	if err := json.Unmarshal(data, &streams); err != nil {
+		if b.logger != nil {
+			b.logger.Printf("[error] unmarshal json:%v", err)
+		}
 		return err
 	}
 
-	if streams.Id != nil{
-		if b.logger != nil{
+	if streams.Id != nil {
+		if b.logger != nil {
 			b.logger.Printf("[success] Successfuly Subscribe Channel")
 		}
 		return nil
 	}
 
-	if streams.Stream != nil{
+	if streams.Stream != nil {
 
+		streamName := *streams.Stream
+
+		// 假如等于服务器即将关闭
+		if strings.ToLower(streamName) == "serverShutdown" {
+			if b.logger != nil {
+				b.logger.Printf("[error] Binance server shutdown,date_time=%s", time.Now().Format("2006-01-02 15:04:05"))
+			}
+			b.client.Reconnect("The server is shutting down")
+			return nil
+		}
 		// 分析Stream
-		s := ParseStreamName(*streams.Stream)
+		s := ParseStreamName(streamName)
 		// 分析出ChannelName
 		channelName := s[1]
 		symbol := s[0]
 
 		// 查看一下处理函数
-		if callers,ex := b.handlerMap[channelName];ex{
+		if callers, ex := b.handlerMap[channelName]; ex {
 			for _, callback := range callers {
 				if err := b.pool.Submit(func() {
-					if err := callback(symbol,streams.Data); err != nil {
+					if err := callback(symbol, streams.Data); err != nil {
 						if b.logger != nil {
-							b.logger.Printf("[error]Failed to read message:%s,%s,%s", err.Error(), channelName,*streams.Stream)
+							b.logger.Printf("[error]Failed to read message:%s,%s,%s", err.Error(), channelName, *streams.Stream)
 						}
 						return
 					}
@@ -97,5 +112,7 @@ func (b *BinanceClient) OnMessage(data []byte) error {
 
 func (b *BinanceClient) OnError(err error) {
 	//TODO implement me
-	fmt.Println("Binance client OnError:", err.Error())
+	if b.logger != nil {
+		b.logger.Printf("Binance client OnError:%v", err.Error())
+	}
 }

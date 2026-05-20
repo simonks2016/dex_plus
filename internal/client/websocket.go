@@ -205,7 +205,7 @@ func (c *WsClient) writePump() {
 
 	pingInterval := c.cfg.PingInterval
 	if pingInterval <= 0 {
-		pingInterval = 15 * time.Second
+		pingInterval = time.Duration(15) * time.Second
 	}
 	ticker := time.NewTicker(c.cfg.PingInterval)
 	defer ticker.Stop()
@@ -231,6 +231,7 @@ func (c *WsClient) doWrite(mt int, data []byte) {
 
 	_ = conn.SetWriteDeadline(time.Now().Add(c.cfg.WriteTimeout))
 	var err error
+	//
 	if mt == websocket.PingMessage {
 		err = conn.WriteControl(mt, data, time.Now().Add(c.cfg.WriteTimeout))
 	} else {
@@ -261,6 +262,7 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 			return
 		}
 
+		// 重置read deadline 就是到那个时间段还没有来消息就time out
 		_ = conn.SetReadDeadline(time.Now().Add(c.cfg.PongWait))
 
 		if msgType != websocket.TextMessage && msgType != websocket.BinaryMessage {

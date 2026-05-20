@@ -25,11 +25,13 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 	cfg := client.NewConfig()
 	cfg.WithURL(internal.WsURL)
 	cfg.SetReadTimeout(time.Minute)
-	cfg.SetReadWorkerNum(10)
+	cfg.SetReadWorkerNum(100)
 	cfg.SetWriteTimeout(time.Minute)
 	cfg.SetWriteBufferSize(50)
 	cfg.SendTimeout = time.Minute
 	cfg.SetReadBufferSize(5000)
+	// 每5秒就发送ping
+	cfg.SetPingInterval(time.Duration(5) * time.Second)
 	cfg.ForbidIPV6()
 
 	cli := internal.NewKrakenClient(ctx, cfg)

@@ -27,6 +27,8 @@ func NewPublic(ctx context.Context, symbol ...string) *Public {
 	cfg.SetWriteBufferSize(50)
 	cfg.SendTimeout = time.Minute
 	cfg.SetReadBufferSize(5000)
+	// 每5秒就发送ping
+	cfg.SetPingInterval(time.Duration(5) * time.Second)
 	cfg.ForbidIPV6()
 
 	cli := internal.NewBinanceClient(ctx, nil, cfg)
