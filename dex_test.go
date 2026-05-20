@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 			"",
 			"",
 			""),
-		rest.WithSandbox(true))
+		rest.WithSandbox())
 
 	err := cli.PlaceOrder(param.PlaceOrderParams{
 		InstIdCode: NewInt(3),

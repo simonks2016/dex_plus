@@ -253,6 +253,11 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 	for {
 		msgType, r, err := conn.NextReader()
 		if err != nil {
+			if c.logger != nil {
+				c.logger.Printf("[ws] websocket reader error: %v", err)
+			} else {
+				fmt.Printf("[ws] websocket reader error: %v \n", err)
+			}
 			return
 		}
 
@@ -266,15 +271,20 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 		if err != nil {
 			if c.logger != nil {
 				c.logger.Printf("[error]failed to read message from websocket: %s", err.Error())
+			} else {
+				fmt.Printf("[error]failed to read message from websocket: %s\n", err.Error())
 			}
-			fmt.Println(err.Error())
 			continue
 		}
 
 		select {
 		case c.readCh <- data:
 		default:
-			c.logger.Printf("[ws] readCh full, drop msg")
+			if c.logger != nil {
+				c.logger.Printf("[ws] readCh full, drop msg")
+			} else {
+				fmt.Printf("[ws] readCh full, drop msg\n")
+			}
 		}
 	}
 }

@@ -65,6 +65,14 @@ func subscribeChannel[T payload.BinancePayloadType](p *Public, channel string, c
 	}
 }
 
+// SubscribeTradeRaw 订阅逐笔交易
+func (p *Public) SubscribeTradeRaw(callback func(string, payload.Trade) error) {
+	subscribeChannel[payload.Trade](p, "trade", callback,
+		WithReturnChannelName("trade"),
+		WithIs100Ms(),
+	)
+}
+
 // SubscribeAggTrade 订阅归集交易
 func (p *Public) SubscribeAggTrade(callback func(string, payload.AggTrade) error) {
 	subscribeChannel[payload.AggTrade](p, "aggTrade", callback,
