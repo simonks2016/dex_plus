@@ -2,6 +2,8 @@ package kraken
 
 import (
 	"context"
+	"fmt"
+	"hash/crc32"
 	"log"
 	"strings"
 	"time"
@@ -43,6 +45,9 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 		ctx:         ctx,
 		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000),
 	}
+	// 设置自己checksum
+	p1.bookManager.ChecksumMethod(p1.checksum)
+
 	return &p1
 }
 
@@ -205,4 +210,51 @@ func (p *Public) setSnapshotTimer(ctx context.Context, interval time.Duration, n
 			}
 		}()
 	})
+}
+
+func (p *Public) checksum(bids, asks []bookManager.Level) uint32 {
+
+	var sb strings.Builder
+
+	// asks low -> high
+	for _, ask := range asks {
+
+		price := normalizeKrakenNumber(
+			fmt.Sprintf("%.2f", bookManager.PriceTo(ask.PriceTicks)),
+		)
+
+		size := normalizeKrakenNumber(
+			fmt.Sprintf("%.8f", ask.Size),
+		)
+
+		sb.WriteString(price)
+		sb.WriteString(size)
+	}
+
+	// bids high -> low
+	for _, bid := range bids {
+
+		price := normalizeKrakenNumber(
+			fmt.Sprintf("%.2f", bookManager.PriceTo(bid.PriceTicks)),
+		)
+
+		size := normalizeKrakenNumber(
+			fmt.Sprintf("%.8f", bid.Size),
+		)
+
+		sb.WriteString(price)
+		sb.WriteString(size)
+	}
+	return crc32.ChecksumIEEE([]byte(sb.String()))
+}
+
+func normalizeKrakenNumber(s string) string {
+	// remove decimal point
+	s = strings.ReplaceAll(s, ".", "")
+	// remove leading zeros
+	s = strings.TrimLeft(s, "0")
+	if s == "" {
+		return "0"
+	}
+	return s
 }
