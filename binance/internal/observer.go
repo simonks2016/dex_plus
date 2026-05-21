@@ -77,8 +77,8 @@ func (b *BinanceClient) OnMessage(data []byte) error {
 
 		streamName := *streams.Stream
 
-		// 假如等于服务器即将关闭
-		if strings.ToLower(streamName) == "serverShutdown" {
+		// 假如服务器即将关闭
+		if strings.EqualFold(streamName, "serverShutdown") {
 			if b.logger != nil {
 				b.logger.Printf("[error] Binance server shutdown,date_time=%s", time.Now().Format("2006-01-02 15:04:05"))
 			}
