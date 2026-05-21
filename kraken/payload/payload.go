@@ -21,7 +21,7 @@ type OrderBook struct {
 	Symbol    string          `json:"symbol"`
 	Bids      []OrderBookItem `json:"bids"`
 	Asks      []OrderBookItem `json:"asks"`
-	Checksum  int64           `json:"checksum"`
+	Checksum  uint32          `json:"checksum"`
 	Timestamp time.Time       `json:"timestamp"`
 }
 

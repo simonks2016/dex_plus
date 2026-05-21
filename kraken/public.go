@@ -149,7 +149,7 @@ func (p *Public) handlerOrderBook(env *internal.KrakenEnvelope) error {
 			}(),
 			Ts:       datum.Timestamp,
 			Levels:   levels,
-			Checksum: uint32(datum.Checksum),
+			Checksum: datum.Checksum,
 		}) {
 			if p.logger != nil {
 				p.logger.Printf("[error] failed to submit order book event,the queue is full")
