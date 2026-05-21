@@ -150,8 +150,82 @@ func (p *Public) handlerOrderBook(env *internal.KrakenEnvelope) error {
 		default:
 			// 忽略未定义类型
 		}
+
+		// 再验证 Apply 后本地 book
+		if !validateBookAfterApply(datum.Symbol, msgType, book) {
+			// 这里先只打日志，不要立刻 panic
+			// 后面可以改成 MarkDirty / Resubscribe
+		}
+
 	}
+
 	return nil
+}
+
+func validateIncomingLevels(symbol, msgType string, levels []bookManager.Level) bool {
+	var bestBid *bookManager.Level
+	var bestAsk *bookManager.Level
+
+	for i := range levels {
+		l := levels[i]
+		if l.Size <= 0 || l.PriceTicks <= 0 {
+			continue
+		}
+
+		if l.IsBids {
+			if bestBid == nil || l.PriceTicks > bestBid.PriceTicks {
+				bestBid = &l
+			}
+		} else {
+			if bestAsk == nil || l.PriceTicks < bestAsk.PriceTicks {
+				bestAsk = &l
+			}
+		}
+	}
+
+	// update 可能只有单边，所以这里不能直接判 invalid
+	if bestBid == nil || bestAsk == nil {
+		return true
+	}
+
+	if bestBid.PriceTicks >= bestAsk.PriceTicks {
+		log.Printf(
+			"[KRAKEN incoming crossed] symbol=%s type=%s bid=%+v ask=%+v crossedTicks=%d",
+			symbol,
+			msgType,
+			*bestBid,
+			*bestAsk,
+			bestBid.PriceTicks-bestAsk.PriceTicks,
+		)
+		return false
+	}
+
+	return true
+}
+
+func validateBookAfterApply(symbol, msgType string, book *bookManager.OrderBook) bool {
+	bids, asks := book.SnapshotTopN(1)
+
+	if len(bids) == 0 || len(asks) == 0 {
+		return true
+	}
+
+	bestBid := bids[0]
+	bestAsk := asks[0]
+
+	if bestBid.PriceTicks >= bestAsk.PriceTicks {
+		log.Printf(
+			"[KRAKEN local book crossed] symbol=%s type=%s bid=%+v ask=%+v crossedTicks=%d",
+			symbol,
+			msgType,
+			bestBid,
+			bestAsk,
+			bestBid.PriceTicks-bestAsk.PriceTicks,
+		)
+		return false
+	}
+
+	return true
 }
 
 // setSnapshotTimer Set the timer of book snapshot

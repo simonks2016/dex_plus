@@ -46,7 +46,7 @@ func (ob *OrderBook) ApplySnapshot(ts time.Time, levels ...Level) error {
 	ob.askH = ob.askH[:0]
 
 	for _, l := range levels {
-		if l.Size <= 0 {
+		if l.Size <= 0 || l.PriceTicks <= 0 {
 			continue
 		}
 
@@ -77,7 +77,7 @@ func (ob *OrderBook) ApplyL2Update(changes []Level, ts time.Time) error {
 		sz := ch.Size
 
 		if ch.IsBids {
-			if sz == 0 {
+			if sz < 1e-6 {
 				delete(ob.bids, px)
 			} else {
 				_, existed := ob.bids[px]
@@ -87,7 +87,7 @@ func (ob *OrderBook) ApplyL2Update(changes []Level, ts time.Time) error {
 				}
 			}
 		} else {
-			if sz == 0 {
+			if sz < 1e-6 {
 				delete(ob.asks, px)
 			} else {
 				_, exists := ob.asks[px]
