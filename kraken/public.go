@@ -51,6 +51,10 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 	return &p1
 }
 
+func (p *Public) Debug() {
+	p.bookManager.Debug()
+}
+
 func (p *Public) SubscribeTrade(callback func(trades []payload.Trade) error) {
 
 	// 订阅Trade频道
