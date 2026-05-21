@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/panjf2000/ants/v2 v2.11.4
-	github.com/simonks2016/book_manager v0.0.0-20260521105952-6d298c67d2da
+	github.com/simonks2016/book_manager v0.0.0-20260521110739-508ca2a542c6
 	golang.org/x/net v0.52.0
 )
 
