@@ -3,6 +3,7 @@ package okx
 const (
 	TickersChannel            = "tickers"
 	CallAuctionDetailsChannel = "call-auction-details"
+	TradesAllChannel          = "trades-all"
 	TradesChannel             = "trades"
 	Books5Channel             = "books5"
 	KLine1SChannel            = "candle1s"

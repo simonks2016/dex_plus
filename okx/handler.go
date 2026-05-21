@@ -91,8 +91,8 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		return ret, nil
 
 	case AggregatedTrades:
-		if ch != "trades" {
-			return nil, fmt.Errorf("type/channel mismatch: want trade(T=OKXTrade) but channel=%s", ch)
+		if strings.EqualFold(ch, "trades") == false {
+			return nil, fmt.Errorf("type/channel mismatch: want trade(T=OKXAggTrade) but channel=%s", ch)
 		}
 		var v []AggregatedTrades
 		if err := json.Unmarshal(resp.Data, &v); err != nil {
@@ -104,8 +104,8 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		}
 		return ret, nil
 	case RawTrades:
-		if ch != "trades-all" {
-			return nil, fmt.Errorf("type/channel mismatch: want trade(T=OKXTrade) but channel=%s", ch)
+		if strings.EqualFold(ch, "trades-all") == false {
+			return nil, fmt.Errorf("type/channel mismatch: want trade(T=TradesAll) but channel=%s", ch)
 		}
 		var v []RawTrades
 		if err := json.Unmarshal(resp.Data, &v); err != nil {
@@ -170,7 +170,7 @@ func ParseData[T MarketEvent](resp *Payload) ([]T, error) {
 		return ret, nil
 	case OrderState:
 		if ch != "orders" {
-			return nil, fmt.Errorf("type/channel mismatch: want positions but channel=%s", ch)
+			return nil, fmt.Errorf("type/channel mismatch: want orderState but channel=%s", ch)
 		}
 		var v []OrderState
 		if err := json.Unmarshal(resp.Data, &v); err != nil {

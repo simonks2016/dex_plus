@@ -106,10 +106,10 @@ func (p *Public) SubscribeTrade(callback func(trade []okx.AggregatedTrades) erro
 	subscribe[okx.AggregatedTrades](okx.TradesChannel, callback, p)
 }
 
-// SubscribeTradeAll 订阅公共逐币交易数据
+// SubscribeTradeAll 订阅公共逐笔交易数据
 func (p *Public) SubscribeTradeAll(callback func(trade []okx.RawTrades) error) {
 	//TODO implement me
-	subscribe[okx.RawTrades](okx.TradesChannel, callback, p)
+	subscribe[okx.RawTrades]("trades-all", callback, p)
 }
 
 // SubscribeBook 订阅实时盘口数据

@@ -1,4 +1,4 @@
-package public
+package business
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/simonks2016/dex_plus/okx/internal"
 )
 
-type Public struct {
+type Business struct {
 	client     *internal.OKXClient
 	logger     *log.Logger
 	instId     []string
@@ -19,7 +19,18 @@ type Public struct {
 	ctx        context.Context
 }
 
-func NewPublic(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPublic {
+type OKXBusiness interface {
+	SubscribeTradeAll(callback func(trade []okx.RawTrades) error)
+	SetLogger(logger *log.Logger) OKXBusiness
+	SetInstId(id ...string) OKXBusiness
+	SetInstFamily(id ...string) OKXBusiness
+	Connect()
+	Reconnect()
+	Close()
+	ExchangeName() string
+}
+
+func NewBusiness(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXBusiness {
 
 	cfg := client.NewConfig()
 	cfg.SetWriteBufferSize(4000)
@@ -28,7 +39,7 @@ func NewPublic(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPu
 	cfg.SetReadTimeout(time.Second * time.Duration(10))
 	cfg.SetWriteTimeout(time.Second * time.Duration(10))
 	cfg.SendTimeout = time.Minute * time.Duration(10)
-	cfg.WithURL(okx.PublicURL(true))
+	cfg.WithURL(okx.BusinessURL(true))
 	cfg.IsNeedAuth = false
 	cfg.IsForbidIPV6 = false
 
@@ -44,22 +55,8 @@ func NewPublic(bg context.Context, pool *ants.Pool, opts ...client.Option) OKXPu
 	cli := internal.NewOKXClient(bg, nil, cfg)
 	cli.SetThreadPool(pool)
 
-	return &Public{
+	return &Business{
 		ctx:    bg,
 		client: cli,
 	}
-}
-
-type OKXPublic interface {
-	SetLogger(logger *log.Logger) OKXPublic
-	SetInstId(id ...string) OKXPublic
-	SetInstFamily(id ...string) OKXPublic
-	Connect()
-	Reconnect()
-	Close()
-	SubscribeTicker(callback func(tickers []okx.Ticker) error)
-	SubscribeTrade(callback func(trade []okx.AggregatedTrades) error)
-
-	SubscribeBook(channel string, callback func(books []okx.OrderBook) error)
-	ExchangeName() string
 }

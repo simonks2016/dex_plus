@@ -1,14 +1,17 @@
 package DexPlus
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/simonks2016/dex_plus/okx/param"
-	"github.com/simonks2016/dex_plus/okx/rest"
+	"github.com/simonks2016/dex_plus/okx"
+	"github.com/simonks2016/dex_plus/okx/business"
 )
 
 func NewLogger() *log.Logger {
@@ -21,39 +24,47 @@ func NewLogger() *log.Logger {
 
 func TestNew(t *testing.T) {
 
-	cli := rest.NewOKXRestClient(
-		rest.WithAuth(
-			"",
-			"",
-			""),
-		rest.WithSandbox())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	err := cli.PlaceOrder(param.PlaceOrderParams{
-		InstIdCode: NewInt(3),
-		TdMode:     "cash",
-		ClOrdId:    NewString("a"),
-		Side:       "buy",
-		OrdType:    "limit",
-		SZ:         "0.002",
-		Px:         NewString("70000"),
-	})
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	time.Sleep(5 * time.Minute)
-
-	err = cli.CancelOrder(
-		param.CancelOrder{
-			InstId:  NewString("BTC-USDT"),
-			ClOrdId: NewString("a"),
-		},
+	client := business.NewBusiness(
+		ctx,
+		nil,
+		okx.WithForbidIpV6(),
+		okx.WithSendTimeout(5*time.Minute),
 	)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
+
+	client.Connect()
+	client.SetInstId("BTC-USDT")
+	client.SubscribeTradeAll(func(trades []okx.RawTrades) error {
+
+		for _, trade := range trades {
+			fmt.Println(trade.TradeId)
+		}
+
+		return nil
+	})
+
+	// 监听 Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+
+	signal.Notify(
+		sigChan,
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+
+	select {
+	case <-sigChan:
+		fmt.Println("received shutdown signal")
+
+	case <-ctx.Done():
+		fmt.Println("context canceled")
 	}
 
+	client.Close()
+
+	fmt.Println("client closed")
 }
 
 func NewInt(i int) *int {
