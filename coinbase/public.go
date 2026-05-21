@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	"github.com/simonks2016/book_manager"
 	"github.com/simonks2016/dex_plus/coinbase/internal"
 	"github.com/simonks2016/dex_plus/coinbase/payload"
-	"github.com/simonks2016/dex_plus/internal/bookManager"
 	"github.com/simonks2016/dex_plus/internal/client"
 )
 

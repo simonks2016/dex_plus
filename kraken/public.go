@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/simonks2016/dex_plus/internal/bookManager"
+	"github.com/simonks2016/book_manager"
 	"github.com/simonks2016/dex_plus/internal/client"
 	"github.com/simonks2016/dex_plus/kraken/internal"
 	"github.com/simonks2016/dex_plus/kraken/payload"
@@ -41,7 +41,7 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 		symbols:     symbols,
 		logger:      cfg.Logger,
 		ctx:         ctx,
-		bookManager: bookManager.NewBookManager(),
+		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000),
 	}
 	return &p1
 }
@@ -134,98 +134,29 @@ func (p *Public) handlerOrderBook(env *internal.KrakenEnvelope) error {
 			})
 		}
 
-		// 4. 根据类型路由到不同的处理逻辑
-		book := p.bookManager.GetOrCreate(datum.Symbol)
-
-		switch msgType {
-		case "snapshot":
-			if err := book.ApplySnapshot(datum.Timestamp, levels...); err != nil {
-				return err
+		// 提交更新事件
+		if !p.bookManager.Submit(bookManager.BookEvent{
+			Symbol: datum.Symbol,
+			Type: func() bookManager.BookEventType {
+				switch msgType {
+				case "snapshot":
+					return bookManager.EventSnapshot
+				case "update":
+					return bookManager.EventUpdate
+				default:
+					return bookManager.EventUpdate
+				}
+			}(),
+			Ts:       datum.Timestamp,
+			Levels:   levels,
+			Checksum: uint32(datum.Checksum),
+		}) {
+			if p.logger != nil {
+				p.logger.Printf("[error] failed to submit order book event,the queue is full")
 			}
-		case "update":
-			// 假设 ApplyL2Update 接收 []Level 和 Time
-			if err := book.ApplyL2Update(levels, datum.Timestamp); err != nil {
-				return err
-			}
-		default:
-			// 忽略未定义类型
 		}
-
-		// 再验证 Apply 后本地 book
-		if !validateBookAfterApply(datum.Symbol, msgType, book) {
-			// 这里先只打日志，不要立刻 panic
-			// 后面可以改成 MarkDirty / Resubscribe
-		}
-
 	}
-
 	return nil
-}
-
-func validateIncomingLevels(symbol, msgType string, levels []bookManager.Level) bool {
-	var bestBid *bookManager.Level
-	var bestAsk *bookManager.Level
-
-	for i := range levels {
-		l := levels[i]
-		if l.Size <= 0 || l.PriceTicks <= 0 {
-			continue
-		}
-
-		if l.IsBids {
-			if bestBid == nil || l.PriceTicks > bestBid.PriceTicks {
-				bestBid = &l
-			}
-		} else {
-			if bestAsk == nil || l.PriceTicks < bestAsk.PriceTicks {
-				bestAsk = &l
-			}
-		}
-	}
-
-	// update 可能只有单边，所以这里不能直接判 invalid
-	if bestBid == nil || bestAsk == nil {
-		return true
-	}
-
-	if bestBid.PriceTicks >= bestAsk.PriceTicks {
-		log.Printf(
-			"[KRAKEN incoming crossed] symbol=%s type=%s bid=%+v ask=%+v crossedTicks=%d",
-			symbol,
-			msgType,
-			*bestBid,
-			*bestAsk,
-			bestBid.PriceTicks-bestAsk.PriceTicks,
-		)
-		return false
-	}
-
-	return true
-}
-
-func validateBookAfterApply(symbol, msgType string, book *bookManager.OrderBook) bool {
-	bids, asks := book.SnapshotTopN(1)
-
-	if len(bids) == 0 || len(asks) == 0 {
-		return true
-	}
-
-	bestBid := bids[0]
-	bestAsk := asks[0]
-
-	if bestBid.PriceTicks >= bestAsk.PriceTicks {
-		log.Printf(
-			"[KRAKEN local book crossed] symbol=%s type=%s bid=%+v ask=%+v crossedTicks=%d",
-			symbol,
-			msgType,
-			bestBid,
-			bestAsk,
-			bestBid.PriceTicks-bestAsk.PriceTicks,
-		)
-		return false
-	}
-
-	return true
 }
 
 // setSnapshotTimer Set the timer of book snapshot
