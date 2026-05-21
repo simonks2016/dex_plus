@@ -40,7 +40,7 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 		cfg:         cfg,
 		logger:      cfg.Logger,
 		ctx:         ctx,
-		bookManager: bookManager.NewBookManager(),
+		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000),
 	}
 }
 func (p *Public) SetSymbols(symbols ...string) { p.SetSymbols(symbols...) }
