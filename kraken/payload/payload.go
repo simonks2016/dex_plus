@@ -3,13 +3,13 @@ package payload
 import "time"
 
 type Trade struct {
-	Symbol    string    `json:"symbol"`
-	Side      string    `json:"side"`
-	Qty       float64   `json:"qty"`
-	Price     float64   `json:"price"`
-	OrdType   string    `json:"ord_type"`
-	TradeId   int       `json:"trade_id"`
-	Timestamp time.Time `json:"timestamp"`
+	Symbol    string  `json:"symbol"`
+	Side      string  `json:"side"`
+	Qty       float64 `json:"qty"`
+	Price     float64 `json:"price"`
+	OrdType   string  `json:"ord_type"`
+	TradeId   int     `json:"trade_id"`
+	Timestamp string  `json:"timestamp"`
 }
 
 type OrderBookItem struct {
