@@ -12,6 +12,7 @@ import (
 	"github.com/simonks2016/book_manager"
 	"github.com/simonks2016/dex_plus/internal/client"
 	"github.com/simonks2016/dex_plus/kraken/internal"
+	"github.com/simonks2016/dex_plus/kraken/params"
 	"github.com/simonks2016/dex_plus/kraken/payload"
 )
 
@@ -51,7 +52,22 @@ func NewPublic(ctx context.Context, opts ...Option) *Public {
 	p1.bookManager.EnableChecksum(false, nil)
 	p1.bookManager.OnMarkDirty(func(symbol string, reason string, ev *bookManager.BookEvent, book *bookManager.OrderBook) {
 		if p1.logger != nil {
-			p1.logger.Printf("[error] symbol = %s, reason = %s", symbol, reason)
+			bid, ask, tick, _ := bookManager.CrossedInfo(book)
+			// 打印日志
+			p1.logger.Printf(
+				"[crossed_book] symbol=%s reason=%s bestBid={price=%d size=%.8f} bestAsk={price=%d size=%.8f} crossedTicks=%d",
+				symbol,
+				reason,
+				bid.PriceTicks,
+				bid.Size,
+				ask.PriceTicks,
+				ask.Size,
+				tick,
+			)
+			// 重新订阅盘口数据
+			if err := p1.reSubscribeBook(symbol); err != nil {
+				return
+			}
 		}
 	})
 
@@ -298,4 +314,18 @@ func normalizeKrakenChecksumValue(s string) string {
 	}
 
 	return s
+}
+
+func (p *Public) reSubscribeBook(symbols ...string) error {
+
+	// 生成取消订阅参数
+	unsubscribeParam := params.NewKrakenParams(params.Unsubscribe, "book", symbols...)
+	// 发送取消订阅盘口消息消息
+	err := p.client.Send(unsubscribeParam.Json())
+	if err != nil {
+		return err
+	}
+	// 生成订阅消息
+	subscribeParam := params.NewKrakenParams(params.Subscribe, "book", symbols...)
+	return p.client.Send(subscribeParam.Json())
 }
