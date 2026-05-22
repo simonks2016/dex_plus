@@ -121,13 +121,5 @@ func (k *KrakenClient) Resubscribe(channel string, symbols ...string) error {
 		return err
 	}
 
-	subscribeParam := params.NewKrakenParams(params.Subscribe, channel, newSymbols...)
-	if err := k.Send(subscribeParam.Json()); err != nil {
-		for _, symbol := range newSymbols {
-			k.channelState.Switch(channel, symbol, SubscribeFailed)
-		}
-		return err
-	}
-
 	return nil
 }
