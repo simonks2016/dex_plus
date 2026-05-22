@@ -195,7 +195,12 @@ func (k *KrakenClient) onSubscribeAck(e *payload.KrakenEnvelope) error {
 			k.channelState.Switch(channel, symbol, Subscribed)
 		}
 		if k.logger != nil {
-			k.logger.Printf("[success] Successfully subscribed to channel=%s symbol=%s", channel, symbol)
+			k.logger.Printf("[success] Successfully subscribed to channel=%s %s", channel, func() string {
+				if symbol == "" {
+					return ""
+				}
+				return fmt.Sprintf("symbol=%s", symbol)
+			}())
 		}
 	} else {
 		if symbol != "" {

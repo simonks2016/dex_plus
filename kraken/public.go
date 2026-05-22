@@ -40,34 +40,23 @@ func NewPublic(ctx context.Context, opts ...Option) *Public {
 	cli := internal.NewKrakenClient(ctx, cfg)
 
 	p1 := &Public{
-		client:      cli,
-		symbols:     []string{},
-		logger:      cfg.Logger,
-		ctx:         ctx,
-		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000),
+		client:  cli,
+		symbols: []string{},
+		logger:  cfg.Logger,
+		ctx:     ctx,
+		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000,
+			bookManager.WithCrossedThreshold(10)),
 	}
 	// 设置Kraken checksum
 	p1.bookManager.ChecksumFunc(p1.checksum)
 	p1.bookManager.EnableChecksum(false, nil)
 	p1.bookManager.OnMarkDirty(func(symbol string, reason string, ev *bookManager.BookEvent, book *bookManager.OrderBook) {
-		if p1.logger != nil {
-			bid, ask, tick, _ := bookManager.CrossedInfo(book)
-
-			// 打印日志
-			p1.logger.Printf(
-				"[crossed_book] symbol=%s reason=%s bestBid={price=%d size=%.8f} bestAsk={price=%d size=%.8f} crossedTicks=%d",
-				symbol,
-				reason,
-				bid.PriceTicks,
-				bid.Size,
-				ask.PriceTicks,
-				ask.Size,
-				tick,
-			)
-			// 重新订阅盘口数据
-			if err := p1.client.Resubscribe("book", symbol); err != nil {
-				return
+		// 重新订阅盘口数据
+		if err := p1.client.Resubscribe("book", symbol); err != nil {
+			if p1.logger != nil {
+				p1.logger.Printf("[error]failed to resubscribe channel,%v", err)
 			}
+			return
 		}
 	})
 

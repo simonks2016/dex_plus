@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"testing"
 	"time"
@@ -33,8 +34,55 @@ func TestNew(t *testing.T) {
 	)
 
 	client.SetSymbols("BTC/USDT")
-	client.SubscribeOrderBook(time.Duration(100)*time.Millisecond, func(ob []payload.OrderBook) error {
-		fmt.Println(ob)
+	client.SubscribeOrderBook(time.Duration(1)*time.Second, func(ob []payload.OrderBook) error {
+
+		var allAsks []float64
+		var allBids []float64
+
+		for _, book := range ob {
+
+			for _, ask := range book.Asks {
+				allAsks = append(allAsks, ask.Price)
+			}
+
+			for _, bid := range book.Bids {
+				allBids = append(allBids, bid.Price)
+			}
+		}
+
+		// asks 正常应该：从低到高
+		sort.Float64s(allAsks)
+
+		// bids 正常应该：从高到低
+		sort.Slice(allBids, func(i, j int) bool {
+			return allBids[i] > allBids[j]
+		})
+
+		fmt.Println("========== ASKS ==========")
+		for i, ask := range allAsks {
+			fmt.Printf("[%d] %.2f\n", i, ask)
+		}
+
+		fmt.Println("========== BIDS ==========")
+		for i, bid := range allBids {
+			fmt.Printf("[%d] %.2f\n", i, bid)
+		}
+
+		// 检查是否 crossed
+		if len(allAsks) > 0 && len(allBids) > 0 {
+
+			bestAsk := allAsks[0]
+			bestBid := allBids[0]
+
+			crossed := bestBid - bestAsk
+
+			fmt.Printf(
+				"\nBestBid=%.2f BestAsk=%.2f Crossed=%.2f\n",
+				bestBid,
+				bestAsk,
+				crossed,
+			)
+		}
 		return nil
 	})
 	client.Connect()
