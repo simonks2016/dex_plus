@@ -16,7 +16,7 @@ type KrakenParams struct {
 
 type Param struct {
 	Channel string   `json:"channel"`
-	Symbol  []string `json:"symbol"`
+	Symbol  []string `json:"symbol,omitempty"`
 }
 
 func NewKrakenParams(method, channel string, symbols ...string) *KrakenParams {

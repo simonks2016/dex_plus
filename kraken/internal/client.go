@@ -8,19 +8,21 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/simonks2016/dex_plus/internal/client"
+	"github.com/simonks2016/dex_plus/kraken/payload"
 )
 
 type KrakenClient struct {
-	ctx              context.Context
-	client           *client.WsClient
-	logger           *log.Logger
-	pool             *ants.Pool
-	cfg              *client.Config
-	isConnected      atomic.Bool
-	isAuthDone       atomic.Bool
-	isRequireAuth    bool
-	handler          map[string][]Caller
-	subscribeRequest map[string][]string
+	ctx               context.Context
+	client            *client.WsClient
+	logger            *log.Logger
+	pool              *ants.Pool
+	cfg               *client.Config
+	isConnected       atomic.Bool
+	isAuthDone        atomic.Bool
+	isRequireAuth     bool
+	handler           map[string][]Caller
+	subscribeRequest  map[string][]string
+	instrumentService *InstrumentService
 }
 
 func NewKrakenClient(ctx context.Context, cfg *client.Config) *KrakenClient {
@@ -28,16 +30,19 @@ func NewKrakenClient(ctx context.Context, cfg *client.Config) *KrakenClient {
 	pool, _ := ants.NewPool(ants.DefaultAntsPoolSize, ants.WithNonblocking(true))
 
 	krakenClient := &KrakenClient{
-		ctx:              ctx,
-		client:           client.NewWsClient(ctx, cfg),
-		logger:           cfg.Logger,
-		pool:             pool,
-		cfg:              cfg,
-		isRequireAuth:    cfg.IsNeedAuth,
-		handler:          make(map[string][]Caller),
-		subscribeRequest: make(map[string][]string),
+		ctx:               ctx,
+		client:            client.NewWsClient(ctx, cfg),
+		logger:            cfg.Logger,
+		pool:              pool,
+		cfg:               cfg,
+		isRequireAuth:     cfg.IsNeedAuth,
+		handler:           make(map[string][]Caller),
+		subscribeRequest:  make(map[string][]string),
+		instrumentService: NewInstrumentService(),
 	}
 	krakenClient.client.SetObserver(krakenClient)
+	// 添加处理instrument
+	krakenClient.handler["instrument"] = append(krakenClient.handler["instrument"], krakenClient.onInstrument)
 
 	return krakenClient
 }
@@ -75,4 +80,8 @@ type SubscribeChannel struct {
 	Channel string   `json:"channel"`
 	Symbols []string `json:"symbols"`
 	Caller  []Caller `json:"caller"`
+}
+
+func (k *KrakenClient) GetTradingPair(symbol string) (payload.Pair, bool) {
+	return k.instrumentService.GetTradingPair(symbol)
 }

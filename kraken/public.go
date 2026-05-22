@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ type Public struct {
 	bookManager *bookManager.BookManager
 }
 
-func NewPublic(ctx context.Context, symbols ...string) *Public {
+func NewPublic(ctx context.Context, opts ...Option) *Public {
 
 	cfg := client.NewConfig()
 	cfg.WithURL(internal.WsURL)
@@ -38,21 +39,27 @@ func NewPublic(ctx context.Context, symbols ...string) *Public {
 
 	cli := internal.NewKrakenClient(ctx, cfg)
 
-	p1 := Public{
+	p1 := &Public{
 		client:      cli,
-		symbols:     symbols,
+		symbols:     []string{},
 		logger:      cfg.Logger,
 		ctx:         ctx,
 		bookManager: bookManager.NewBookManagerWithWorkers(10, 4000),
 	}
-	// 设置自己checksum
-	p1.bookManager.ChecksumMethod(p1.checksum)
+	// 设置Kraken checksum
+	p1.bookManager.ChecksumFunc(p1.checksum)
+	p1.bookManager.EnableChecksum(false, nil)
+	p1.bookManager.OnMarkDirty(func(symbol string, reason string, ev *bookManager.BookEvent, book *bookManager.OrderBook) {
+		if p1.logger != nil {
+			p1.logger.Printf("[error] symbol = %s, reason = %s", symbol, reason)
+		}
+	})
 
-	return &p1
-}
+	for _, opt := range opts {
+		opt(p1)
+	}
 
-func (p *Public) Debug() {
-	p.bookManager.Debug()
+	return p1
 }
 
 func (p *Public) SubscribeTrade(callback func(trades []payload.Trade) error) {
@@ -62,7 +69,7 @@ func (p *Public) SubscribeTrade(callback func(trades []payload.Trade) error) {
 		Channel: "trade",
 		Symbols: p.symbols,
 		Caller: []internal.Caller{
-			func(envelope *internal.KrakenEnvelope) error {
+			func(envelope *payload.KrakenEnvelope) error {
 				data, err := payload.ParseData[payload.Trade](envelope)
 				if err != nil {
 					return err
@@ -79,7 +86,7 @@ func (p *Public) SubscribeOrderBook(interval time.Duration, callback func(ob []p
 		Channel: "book",
 		Symbols: p.symbols,
 		Caller: []internal.Caller{
-			func(envelope *internal.KrakenEnvelope) error {
+			func(envelope *payload.KrakenEnvelope) error {
 				return p.handlerOrderBook(envelope)
 			},
 		},
@@ -108,7 +115,7 @@ func (p *Public) SetSymbols(symbols ...string) {
 	p.symbols = symbols
 }
 
-func (p *Public) handlerOrderBook(env *internal.KrakenEnvelope) error {
+func (p *Public) handlerOrderBook(env *payload.KrakenEnvelope) error {
 	// 1. 安全检查 Type
 	if env.Type == nil {
 		return nil
@@ -142,7 +149,6 @@ func (p *Public) handlerOrderBook(env *internal.KrakenEnvelope) error {
 				IsBids:     false,
 			})
 		}
-
 		// 提交更新事件
 		if !p.bookManager.Submit(bookManager.BookEvent{
 			Symbol: datum.Symbol,
@@ -216,49 +222,80 @@ func (p *Public) setSnapshotTimer(ctx context.Context, interval time.Duration, n
 	})
 }
 
-func (p *Public) checksum(bids, asks []bookManager.Level) uint32 {
+func (p *Public) checksum(symbol string, bids, asks []bookManager.Level) uint32 {
+
+	if i, ex := p.client.GetTradingPair(symbol); ex {
+		return rawChecksum(bids, asks, i.PricePrecision, i.QtyPrecision)
+	} else {
+		if p.logger != nil {
+			p.logger.Printf("[error] failed to get trading pair,the trading pair does not exist")
+		}
+		return 0
+	}
+}
+
+func rawChecksum(bids, asks []bookManager.Level, krakenPricePrecision, krakenQtyPrecision int) uint32 {
+	// 复制，避免修改外部 slice
+	bs := append([]bookManager.Level(nil), bids...)
+	as := append([]bookManager.Level(nil), asks...)
+
+	// asks: low -> high
+	sort.Slice(as, func(i, j int) bool {
+		return as[i].PriceTicks < as[j].PriceTicks
+	})
+
+	// bids: high -> low
+	sort.Slice(bs, func(i, j int) bool {
+		return bs[i].PriceTicks > bs[j].PriceTicks
+	})
+
+	if len(as) > 10 {
+		as = as[:10]
+	}
+	if len(bs) > 10 {
+		bs = bs[:10]
+	}
 
 	var sb strings.Builder
 
-	// asks low -> high
-	for _, ask := range asks {
-
-		price := normalizeKrakenNumber(
-			fmt.Sprintf("%.2f", bookManager.PriceTo(ask.PriceTicks)),
+	for _, ask := range as {
+		price := normalizeKrakenChecksumValue(
+			formatFixed(bookManager.PriceTo(ask.PriceTicks), krakenPricePrecision),
 		)
-
-		size := normalizeKrakenNumber(
-			fmt.Sprintf("%.8f", ask.Size),
+		qty := normalizeKrakenChecksumValue(
+			formatFixed(ask.Size, krakenQtyPrecision),
 		)
 
 		sb.WriteString(price)
-		sb.WriteString(size)
+		sb.WriteString(qty)
 	}
 
-	// bids high -> low
-	for _, bid := range bids {
-
-		price := normalizeKrakenNumber(
-			fmt.Sprintf("%.2f", bookManager.PriceTo(bid.PriceTicks)),
+	for _, bid := range bs {
+		price := normalizeKrakenChecksumValue(
+			formatFixed(bookManager.PriceTo(bid.PriceTicks), krakenPricePrecision),
 		)
-
-		size := normalizeKrakenNumber(
-			fmt.Sprintf("%.8f", bid.Size),
+		qty := normalizeKrakenChecksumValue(
+			formatFixed(bid.Size, krakenQtyPrecision),
 		)
 
 		sb.WriteString(price)
-		sb.WriteString(size)
+		sb.WriteString(qty)
 	}
+
 	return crc32.ChecksumIEEE([]byte(sb.String()))
 }
 
-func normalizeKrakenNumber(s string) string {
-	// remove decimal point
+func formatFixed(v float64, precision int) string {
+	return fmt.Sprintf("%.*f", precision, v)
+}
+
+func normalizeKrakenChecksumValue(s string) string {
 	s = strings.ReplaceAll(s, ".", "")
-	// remove leading zeros
 	s = strings.TrimLeft(s, "0")
+
 	if s == "" {
 		return "0"
 	}
+
 	return s
 }

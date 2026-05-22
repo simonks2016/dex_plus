@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/simonks2016/dex_plus/okx"
-	"github.com/simonks2016/dex_plus/okx/business"
+	"github.com/simonks2016/dex_plus/kraken"
+	"github.com/simonks2016/dex_plus/kraken/payload"
 )
 
 func NewLogger() *log.Logger {
@@ -27,23 +27,17 @@ func TestNew(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := business.NewBusiness(
+	client := kraken.NewPublic(
 		ctx,
-		nil,
-		okx.WithForbidIpV6(),
-		okx.WithSendTimeout(5*time.Minute),
+		kraken.WithLogger(NewLogger()),
 	)
 
-	client.Connect()
-	client.SetInstId("BTC-USDT")
-	client.SubscribeTradeAll(func(trades []okx.RawTrades) error {
-
-		for _, trade := range trades {
-			fmt.Println(trade.TradeId)
-		}
-
+	client.SetSymbols("BTC/USDT")
+	client.SubscribeOrderBook(time.Duration(100)*time.Millisecond, func(ob []payload.OrderBook) error {
+		fmt.Println(ob)
 		return nil
 	})
+	client.Connect()
 
 	// 监听 Ctrl+C
 	sigChan := make(chan os.Signal, 1)

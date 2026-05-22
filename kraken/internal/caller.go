@@ -1,3 +1,5 @@
 package internal
 
-type Caller func(envelope *KrakenEnvelope) error
+import "github.com/simonks2016/dex_plus/kraken/payload"
+
+type Caller func(envelope *payload.KrakenEnvelope) error
