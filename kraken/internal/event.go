@@ -224,24 +224,27 @@ func (k *KrakenClient) onUnsubscribeAck(e *payload.KrakenEnvelope) error {
 
 	if e.Success != nil && *e.Success {
 		if symbol != "" {
-			k.channelState.Switch(channel, symbol, Unsubscribed)
+			// 获取状态
+			s, ex := k.channelState.Get(channel, symbol)
+			if !ex {
+				return nil
+			}
+			// 假如是重新订阅中,则重新订阅
+			if s == Resubscribing || s == SubscribeFailed {
+				subscribeParam := params.NewKrakenParams(params.Subscribe, channel, symbol)
+				if err := k.Send(subscribeParam.Json()); err != nil {
+					k.channelState.Switch(channel, symbol, SubscribeFailed)
+					return err
+				}
+			} else {
+				// 设置取消订阅
+				k.channelState.Switch(channel, symbol, Unsubscribed)
+			}
 		}
 		if k.logger != nil {
 			k.logger.Printf("[success] Successfully unsubscribed to channel=%s symbol=%s", channel, symbol)
 		}
-		// 获取状态
-		s, ex := k.channelState.Get(channel, symbol)
-		if !ex {
-			return nil
-		}
-		// 假如是重新订阅中,则重新订阅
-		if s == Resubscribing || s == SubscribeFailed {
-			subscribeParam := params.NewKrakenParams(params.Subscribe, channel, symbol)
-			if err := k.Send(subscribeParam.Json()); err != nil {
-				k.channelState.Switch(channel, symbol, SubscribeFailed)
-				return err
-			}
-		}
+
 	} else {
 		if symbol != "" {
 			k.channelState.Switch(channel, symbol, SubscribeFailed)
