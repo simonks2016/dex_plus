@@ -8,6 +8,7 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 	"github.com/simonks2016/dex_plus/internal/client"
+	"github.com/simonks2016/dex_plus/kraken/params"
 	"github.com/simonks2016/dex_plus/kraken/payload"
 )
 
@@ -23,6 +24,7 @@ type KrakenClient struct {
 	handler           map[string][]Caller
 	subscribeRequest  map[string][]string
 	instrumentService *InstrumentService
+	channelState      *SubscribeChannelState
 }
 
 func NewKrakenClient(ctx context.Context, cfg *client.Config) *KrakenClient {
@@ -39,6 +41,7 @@ func NewKrakenClient(ctx context.Context, cfg *client.Config) *KrakenClient {
 		handler:           make(map[string][]Caller),
 		subscribeRequest:  make(map[string][]string),
 		instrumentService: NewInstrumentService(),
+		channelState:      NewSubscribeChannelState(),
 	}
 	krakenClient.client.SetObserver(krakenClient)
 	// 添加处理instrument
@@ -69,10 +72,13 @@ func (k *KrakenClient) Close() {
 }
 
 func (k *KrakenClient) Subscribe(channels ...SubscribeChannel) {
-	// 输入
 	for _, channel := range channels {
 		k.subscribeRequest[channel.Channel] = append(k.subscribeRequest[channel.Channel], channel.Symbols...)
 		k.handler[channel.Channel] = append(k.handler[channel.Channel], channel.Caller...)
+
+		for _, symbol := range channel.Symbols {
+			k.channelState.Switch(channel.Channel, symbol, Subscribing)
+		}
 	}
 }
 
@@ -84,4 +90,44 @@ type SubscribeChannel struct {
 
 func (k *KrakenClient) GetTradingPair(symbol string) (payload.Pair, bool) {
 	return k.instrumentService.GetTradingPair(symbol)
+}
+
+func (k *KrakenClient) Resubscribe(channel string, symbols ...string) error {
+	var newSymbols []string
+
+	for _, symbol := range symbols {
+		s, ex := k.channelState.Get(channel, symbol)
+		if !ex {
+			continue
+		}
+		// 只允许已订阅的进入重订阅，避免重复 resubscribe
+		if s == Subscribed || s == SubscribeFailed {
+			k.channelState.Switch(channel, symbol, Resubscribing)
+			newSymbols = append(newSymbols, symbol)
+		}
+	}
+
+	// 没有需要重订阅的，直接返回，避免空 unsubscribe/subscribe
+	if len(newSymbols) == 0 {
+		return nil
+	}
+
+	unsubscribeParam := params.NewKrakenParams(params.Unsubscribe, channel, newSymbols...)
+	if err := k.Send(unsubscribeParam.Json()); err != nil {
+		// 发送失败，建议恢复状态
+		for _, symbol := range newSymbols {
+			k.channelState.Switch(channel, symbol, Subscribed)
+		}
+		return err
+	}
+
+	subscribeParam := params.NewKrakenParams(params.Subscribe, channel, newSymbols...)
+	if err := k.Send(subscribeParam.Json()); err != nil {
+		for _, symbol := range newSymbols {
+			k.channelState.Switch(channel, symbol, SubscribeFailed)
+		}
+		return err
+	}
+
+	return nil
 }

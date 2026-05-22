@@ -84,31 +84,18 @@ func (k *KrakenClient) OnMessage(data []byte) error {
 		return fmt.Errorf("failed to unmarshal message,%s", err.Error())
 	}
 
+	// 假如是ACK 消息
 	if e.IsAck() {
-		if k.logger != nil {
-			if e.Success == nil {
-				if k.logger != nil {
-					k.logger.Printf("[error] the ack is not success field")
-				}
-			} else {
-				if *e.Success {
-					if k.logger != nil {
-						k.logger.Printf("[success] Successfully subscribed to the %s channel %s.", e.Result["channel"], func() string {
-							if s, ex := e.Result["symbol"]; !ex {
-								return ""
-							} else {
-								return fmt.Sprintf("of %s", s)
-							}
-						}())
-					}
-				} else {
-					if k.logger != nil {
-						k.logger.Printf("[error] failed to subscribe channel ,because %s", *e.Error)
-					}
-				}
+		if e.Method != nil {
+			switch strings.ToLower(*e.Method) {
+			case "subscribe":
+				return k.onSubscribeAck(&e)
+			case "unsubscribe":
+				return k.onUnsubscribeAck(&e)
+			default:
+				return fmt.Errorf("invalid method %s", *e.Method)
 			}
 		}
-
 	}
 
 	if e.IsSubscription() {
@@ -195,5 +182,59 @@ func (k *KrakenClient) onInstrument(envelope *payload.KrakenEnvelope) error {
 	// 添加到类中
 	k.instrumentService.AddTradingPairs(data.Pairs...)
 	k.instrumentService.AddAsset(data.Assets...)
+	return nil
+}
+
+func (k *KrakenClient) onSubscribeAck(e *payload.KrakenEnvelope) error {
+
+	channel, _ := e.Result["channel"].(string)
+	symbol, _ := e.Result["symbol"].(string)
+
+	if e.Success != nil && *e.Success {
+		if symbol != "" {
+			k.channelState.Switch(channel, symbol, Subscribed)
+		}
+		if k.logger != nil {
+			k.logger.Printf("[success] Successfully subscribed to channel=%s symbol=%s", channel, symbol)
+		}
+	} else {
+		if symbol != "" {
+			k.channelState.Switch(channel, symbol, SubscribeFailed)
+		}
+		if k.logger != nil {
+			errMsg := ""
+			if e.Error != nil {
+				errMsg = *e.Error
+			}
+			k.logger.Printf("[error] failed to subscribe channel=%s symbol=%s because %s", channel, symbol, errMsg)
+		}
+	}
+	return nil
+}
+
+func (k *KrakenClient) onUnsubscribeAck(e *payload.KrakenEnvelope) error {
+
+	channel, _ := e.Result["channel"].(string)
+	symbol, _ := e.Result["symbol"].(string)
+
+	if e.Success != nil && *e.Success {
+		if symbol != "" {
+			k.channelState.Switch(channel, symbol, Unsubscribed)
+		}
+		if k.logger != nil {
+			k.logger.Printf("[success] Successfully unsubscribed to channel=%s symbol=%s", channel, symbol)
+		}
+	} else {
+		if symbol != "" {
+			k.channelState.Switch(channel, symbol, SubscribeFailed)
+		}
+		if k.logger != nil {
+			errMsg := ""
+			if e.Error != nil {
+				errMsg = *e.Error
+			}
+			k.logger.Printf("[error] failed to unsubscribe channel=%s symbol=%s because %s", channel, symbol, errMsg)
+		}
+	}
 	return nil
 }
