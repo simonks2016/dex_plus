@@ -254,6 +254,10 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 	for {
 		msgType, r, err := conn.NextReader()
 		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				c.signalReconnect("the client has been disconnected,reconnecting...")
+				return
+			}
 			if c.logger != nil {
 				c.logger.Printf("[ws] websocket reader error: %v", err)
 			} else {
@@ -271,6 +275,9 @@ func (c *WsClient) readPump(conn *websocket.Conn) {
 
 		data, err := io.ReadAll(io.LimitReader(r, c.cfg.maxMessageSize))
 		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				c.Reconnect("[error]failed to read message on websocket reader")
+			}
 			if c.logger != nil {
 				c.logger.Printf("[error]failed to read message from websocket: %s", err.Error())
 			} else {
